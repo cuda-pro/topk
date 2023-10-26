@@ -1,1 +1,7 @@
+testdata/
+bin/
 .vscode/
+*.dSYM/
+*.swp
+*.swo
+*~

@@ -1,17 +1,9 @@
 
 #include "topk.h"
 
-typedef uint4 group_t;  // uint32_t
+typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
 
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
-    printf("GPU Hello World from 
-           grid(% d, % d, % d),
-           block(% d, % d, % d),
-           thread(% d, % d, % d)\n ", 
-           gridIdx.x,
-           gridIdx.y, gridIdx.z,
-           blockIdx.x, blockIdx.y, blockIdx.z,
-           threadIdx.x, threadIdx.y, threadIdx.z);
     const __restrict__ uint16_t *docs,
     const int *doc_lens, const size_t n_docs,
     uint16_t *query, const int query_len, float *scores) {
@@ -62,10 +54,10 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     }
 }
 
-void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
-                                    std::vector<std::vector<uint16_t>> &docs,
-                                    std::vector<uint16_t> &lens,
-                                    std::vector<std::vector<int>> &indices  // shape [querys.size(), TOPK]
+void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
+                           std::vector<std::vector<uint16_t>> &docs,
+                           std::vector<uint16_t> &lens,
+                           std::vector<std::vector<int>> &indices  // shape [querys.size(), TOPK]
 ) {
     auto n_docs = docs.size();
     std::vector<float> scores(n_docs);
@@ -126,7 +118,7 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
 
         cudaMemcpy(scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
 
-        // sort scores
+        // sort scores with min heap Heap-based sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + TOPK, s_indices.end(),
                           [&scores](const int &a, const int &b) {
                               if (scores[a] != scores[b]) {

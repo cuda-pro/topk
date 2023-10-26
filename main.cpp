@@ -10,7 +10,6 @@
  * its affiliates is strictly prohibited.
  */
 
-#include <cuda.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -25,7 +24,33 @@
 #include <sstream>
 #include <vector>
 
+#include "threadpool.h"
+
+// #define GPU
+#define CPU
+
+#ifdef GPU
+#include <cuda.h>
+
 #include "topk.h"
+#endif
+
+template <typename T>
+void print(std::vector<T> const& v) {
+    for (auto i : v) {
+        std::cout << i << ' ';
+    }
+    std::cout << std::endl;
+}
+
+template <typename T>
+std::vector<T> vec_slice(std::vector<T> const& v, int m, int n) {
+    auto first = v.cbegin() + m;
+    auto last = v.cbegin() + n + 1;
+
+    std::vector<T> vec(first, last);
+    return vec;
+}
 
 std::vector<std::string> getFilesInDirectory(const std::string& directory) {
     std::vector<std::string> files;
@@ -87,6 +112,7 @@ struct UserSpecifiedInput {
             }
             docs.emplace_back(next_doc);
             doc_lens.emplace_back(next_doc.size());
+            // todo: send task to thread pool
         }
         docs_file.close();
         ss.clear();
@@ -95,29 +121,65 @@ struct UserSpecifiedInput {
     }
 };
 
+void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
+                           std::vector<std::vector<uint16_t>>& docs,
+                           std::vector<uint16_t>& lens,
+                           std::vector<std::vector<int>>& indices  // shape [querys.size(), TOPK]
+) {
+    printf("query_size:%zu\t doc_size:%zu\t lens:%zu", querys.size(), docs.size(), lens.size());
+}
+
+void doc_query_scoring(std::vector<std::vector<uint16_t>>& querys,
+                       std::vector<std::vector<uint16_t>>& docs,
+                       std::vector<uint16_t>& lens,
+                       std::vector<std::vector<int>>& indices  // shape [querys.size(), TOPK]
+) {
+#ifdef GPU
+    doc_query_scoring_gpu()
+#endif
+
+#ifdef CPU
+        doc_query_scoring_cpu(querys, docs, lens, indices);
+#endif
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 4) {
         std::cout << "Usage: query_doc_scoring.bin <doc_file_name> <query_file_name> <output_filename>" << std::endl;
         return -1;
     }
     std::string doc_file_name = argv[1];
-    ;
     std::string query_file_dir = argv[2];
-    ;
     std::string output_file = argv[3];
 
     std::cout << "start get topk" << std::endl;
 
-    // 读取文件
+    // read file
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     UserSpecifiedInput inputs(query_file_dir, doc_file_name);
     std::vector<std::vector<int>> indices;
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::cout << "read file cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
 
-    // 计算得分
-    std::cout << "querys_size " << inputs.querys.size() << "docs_size " << inputs.docs.size() << "doc_len " << inputs.doc_lens << std::endl;
-    doc_query_scoring_gpu_function(inputs.querys, inputs.docs, inputs.doc_lens, indices);
+    // score topk
+    int concurrency = std::thread::hardware_concurrency();
+    std::cout << "hardware concurrency:" << concurrency << std::endl;
+    ThreadPool pool(concurrency);
+    std::vector<std::future<int>> results;
+    for (int i = 0; i < concurrency; ++i) {
+        std::vector<std::vector<uint16_t>> sub_vec = vec_slice(inputs.docs, i, int(inputs.docs.size() / concurrency));
+        results.emplace_back(
+            pool.enqueue([i] {
+                // std::cout << "hello " << i << std::endl;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                // std::cout << "world " << i << std::endl;
+                return i * i;
+            }));
+    }
+    for (auto&& result : results)
+        printf("result:%d\n", result.get());
+
+    doc_query_scoring(inputs.querys, inputs.docs, inputs.doc_lens, indices);
 
     std::chrono::high_resolution_clock::time_point t3 = std::chrono::high_resolution_clock::now();
     std::cout << "topk cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms " << std::endl;
