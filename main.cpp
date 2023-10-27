@@ -27,7 +27,9 @@
 #include "threadpool.h"
 
 // #define GPU
+#define DEBUG
 #define CPU
+#define TOPK 100
 
 #ifdef GPU
 #include <cuda.h>
@@ -44,11 +46,17 @@ void print(std::vector<T> const& v) {
 }
 
 template <typename T>
-std::vector<T> vec_slice(std::vector<T> const& v, int m, int n) {
+std::vector<T> sub_vec_v1(std::vector<T> const& v, int m, int n) {
     auto first = v.cbegin() + m;
     auto last = v.cbegin() + n + 1;
 
     std::vector<T> vec(first, last);
+    return vec;
+}
+template <typename T>
+std::vector<T> sub_vec(std::vector<T>& v, int m, int n) {
+    std::vector<T> vec;
+    std::copy(v.begin() + m, v.begin() + n + 1, std::back_inserter(vec));
     return vec;
 }
 
@@ -121,12 +129,66 @@ struct UserSpecifiedInput {
     }
 };
 
+// 求query与doc全集内各数据交集个数平均分 topk (k=100); 这里定义item交集分数为：
+// query[i] >= doc[j](0 <= i < query_size, 0 <= j < doc_size) 算一个交集, 平均分为 query与doc交集数目 / max(query_size, doc_size)
 void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
                            std::vector<std::vector<uint16_t>>& docs,
                            std::vector<uint16_t>& lens,
                            std::vector<std::vector<int>>& indices  // shape [querys.size(), TOPK]
 ) {
-    printf("query_size:%zu\t doc_size:%zu\t lens:%zu", querys.size(), docs.size(), lens.size());
+#ifdef DEBUG
+    printf("doc_query_scoring_cpu query_size:%zu\t docs_size:%zu\t lens_size:%zu\n", querys.size(), docs.size(), lens.size());
+    std::cout << "query:" << std::endl;
+    for (auto query : querys) {
+        print(query);
+    }
+    std::cout << "doc:" << std::endl;
+    for (auto doc : docs) {
+        print(doc);
+    }
+    std::cout << "len:" << std::endl;
+    print(lens);
+#endif
+
+    std::vector<int> s_indices(docs.size());
+    for (auto& query : querys) {
+        // init indices (doc_id) for partial sort with score
+        for (int id = 0; id < docs.size(); ++id) {
+            s_indices[id] = id;
+        }
+
+        int i = 0;
+        std::vector<float> scores(docs.size());
+        for (int doc_id = 0; doc_id < docs.size(); doc_id++) {
+            int tmp_score = 0;
+            auto& doc = docs[doc_id];
+            for (int j = 0; j < doc.size(); j++) {
+                while (i < query.size() && query[i] < doc[j]) {
+                    i++;
+                }
+                if (i < query.size()) {
+                    tmp_score += (query[i] == doc[j]);
+                }
+            }
+            scores[doc_id] = tmp_score / std::max(query.size(), doc.size());
+        }
+        std::cout << "query:" << std::endl;
+        print(query);
+        std::cout << "scores:" << std::endl;
+        print(scores);
+
+        // sort scores with min heap Heap-based sort
+        int topk = docs.size() > TOPK ? TOPK : docs.size();
+        std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
+                          [&scores](const int& a, const int& b) {
+                              if (scores[a] != scores[b]) {
+                                  return scores[a] > scores[b];  // 按照分数降序排序
+                              }
+                              return a < b;  // 如果分数相同，按索引从小到大排序
+                          });
+        std::vector<int> s_ans(s_indices.begin(), s_indices.begin() + topk);
+        indices.push_back(s_ans);
+    }
 }
 
 void doc_query_scoring(std::vector<std::vector<uint16_t>>& querys,
@@ -157,29 +219,60 @@ int main(int argc, char* argv[]) {
     // read file
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     UserSpecifiedInput inputs(query_file_dir, doc_file_name);
-    std::vector<std::vector<int>> indices;
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::cout << "read file cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
 
     // score topk
+#ifdef CPU_CONCURENCY
     int concurrency = std::thread::hardware_concurrency();
     std::cout << "hardware concurrency:" << concurrency << std::endl;
     ThreadPool pool(concurrency);
-    std::vector<std::future<int>> results;
+    std::vector<std::future<std::vector<std::vector<int>>>> results;
+    int split_docs_size = int(inputs.docs.size() / concurrency);
+    std::cout << "split_docs_size:" << split_docs_size << std::endl;
     for (int i = 0; i < concurrency; ++i) {
-        std::vector<std::vector<uint16_t>> sub_vec = vec_slice(inputs.docs, i, int(inputs.docs.size() / concurrency));
+        int start = i * split_docs_size;
+        int end = start + split_docs_size - 1;
         results.emplace_back(
-            pool.enqueue([i] {
-                // std::cout << "hello " << i << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                // std::cout << "world " << i << std::endl;
-                return i * i;
+            pool.enqueue([&inputs, start, end] {
+                std::vector<std::vector<int>> indices;
+                std::vector<std::vector<uint16_t>> sub_docs = sub_vec(inputs.docs, start, end);
+                std::vector<uint16_t> sub_doc_lens = sub_vec(inputs.doc_lens, start, end);
+                // printf("start:%d\tend:%d\t; sub_docs_size:%zu\t sub_doc_lens_size:%zu\n", start, end, sub_docs.size(), sub_doc_lens.size());
+                doc_query_scoring(inputs.querys, sub_docs, sub_doc_lens, indices);
+                return indices;
             }));
     }
-    for (auto&& result : results)
-        printf("result:%d\n", result.get());
+    if (inputs.docs.size() % concurrency > 0) {
+        int start = concurrency * split_docs_size;
+        int end = inputs.docs.size() - 1;
+        results.emplace_back(
+            pool.enqueue([&inputs, start, end] {
+                std::vector<std::vector<int>> sub_indices;
+                std::vector<std::vector<uint16_t>> sub_docs = sub_vec(inputs.docs, start, end);
+                std::vector<uint16_t> sub_doc_lens = sub_vec(inputs.doc_lens, start, end);
+                // printf("start:%d\tend:%d\t; sub_docs_size:%zu\t sub_doc_lens_size:%zu\n", start, end, sub_docs.size(), sub_doc_lens.size());
+                doc_query_scoring(inputs.querys, sub_docs, sub_doc_lens, sub_indices);
+                return sub_indices;
+            }));
+    }
 
+    std::vector<std::vector<int>> indices;
+    for (auto&& result : results) {
+        auto res = result.get();
+        if (res.size() == 0) {
+            continue;
+        }
+        std::cout << "reslut ";
+        for (auto vec : res) {
+            print(vec);
+        }
+        std::cout << std::endl;
+    }
+#else
+    std::vector<std::vector<int>> indices;
     doc_query_scoring(inputs.querys, inputs.docs, inputs.doc_lens, indices);
+#endif
 
     std::chrono::high_resolution_clock::time_point t3 = std::chrono::high_resolution_clock::now();
     std::cout << "topk cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms " << std::endl;

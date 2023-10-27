@@ -3,6 +3,7 @@
 
 typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
 
+// note: query docs vec must sorted by ASC
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     const __restrict__ uint16_t *docs,
     const int *doc_lens, const size_t n_docs,
@@ -41,6 +42,7 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
                     break;
                     // return;
                 }
+                // todo: hash
                 while (query_idx < query_len && query_on_shm[query_idx] < doc_segment[j]) {
                     ++query_idx;
                 }

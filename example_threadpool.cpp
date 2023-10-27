@@ -15,17 +15,20 @@ int case1() {
     std::vector<std::future<int> > results;
 
     for (int i = 0; i < concurrency; ++i) {
-        results.emplace_back(
-            pool.enqueue([i] {
-                // std::cout << "hello " << i << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                // std::cout << "world " << i << std::endl;
-                return i * i;
-            }));
+        results.emplace_back(pool.enqueue([i] {
+            // std::cout << "hello " << i << std::endl;
+            auto s = 1;
+            if (i == 3)
+                s = 3;
+            std::this_thread::sleep_for(std::chrono::seconds(s));
+            // std::cout << "world " << i << std::endl;
+            return i * i;
+        }));
     }
 
     for (auto&& result : results)
         printf("result:%d\n", result.get());
+    std::cout << "ok" << std::endl;
     return 0;
 }
 
