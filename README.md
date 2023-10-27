@@ -10,6 +10,11 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) 算一个交集, 平均分�
 ./bin/query_doc_scoring <doc_file_name> <query_file_name> <output_filename>
 ```
 
+# optimize
+1. currency(cpu thread pool) + parallel(gpu warp pool): cpu -> cpu thread currency -> cpu + gpu -> cpu thread currency + gpu
+2. find or filter: use hash/bitmap(bloom)
+3. topk sort: heap sort (partial_sort) -> bitonic sort
+4. search: need build index (list(ivf,skip),tree or graph), orderly struct
 
 # reference
 - https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html

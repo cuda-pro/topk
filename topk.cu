@@ -1,9 +1,22 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
+ */
 
 #include "topk.h"
 
 typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
 
-// note: query docs vec must sorted by ASC
+// intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
+// score = total_intersection(query,doc) / max(query_size, doc_size)
+// note: query/doc vec must sorted by ASC
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     const __restrict__ uint16_t *docs,
     const int *doc_lens, const size_t n_docs,
@@ -42,7 +55,7 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
                     break;
                     // return;
                 }
-                // todo: hash
+                // todo: hash/bitmap (just for int, but if embedding float/double don't ok)
                 while (query_idx < query_len && query_on_shm[query_idx] < doc_segment[j]) {
                     ++query_idx;
                 }
@@ -59,7 +72,8 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
 void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            std::vector<std::vector<uint16_t>> &docs,
                            std::vector<uint16_t> &lens,
-                           std::vector<std::vector<int>> &indices  // shape [querys.size(), TOPK]
+                           std::vector<std::vector<int>> &indices,  // shape [querys.size(), TOPK]
+                           std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
 ) {
     auto n_docs = docs.size();
     std::vector<float> scores(n_docs);
@@ -120,13 +134,13 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         cudaMemcpy(scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
 
-        // sort scores with min heap Heap-based sort
+        // sort scores with Heap-based sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + TOPK, s_indices.end(),
                           [&scores](const int &a, const int &b) {
                               if (scores[a] != scores[b]) {
-                                  return scores[a] > scores[b];  // 按照分数降序排序
+                                  return scores[a] > scores[b];  // by score DESC
                               }
-                              return a < b;  // 如果分数相同，按索引从小到大排序
+                              return a < b;  // the same score, by index ASC
                           });
         std::vector<int> s_ans(s_indices.begin(), s_indices.begin() + TOPK);
         indices.push_back(s_ans);

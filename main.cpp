@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include <dirent.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -26,16 +14,18 @@
 
 #include "threadpool.h"
 
-// #define GPU
+// golang/rust compile feature (GPU,DEBUG,CPU) like this define
 #define DEBUG
+// #define GPU
 #define CPU
-#define TOPK 100
 
 #ifdef GPU
 #include <cuda.h>
 
 #include "topk.h"
 #endif
+
+#define TOPK 100
 
 template <typename T>
 void print(std::vector<T> const& v) {
@@ -74,6 +64,15 @@ std::vector<std::string> getFilesInDirectory(const std::string& directory) {
     std::sort(files.begin(), files.end());  // sort the files
     return files;
 }
+struct DocScores {
+    std::vector<std::vector<int>> indices;   // shape [querys.size(), TOPK]
+    std::vector<std::vector<float>> scores;  // shape [querys.size(), TOPK]
+
+    DocScores(std::vector<std::vector<int>>& i, std::vector<std::vector<float>>& s) {
+        indices = i;
+        scores = s;
+    }
+};
 
 struct UserSpecifiedInput {
     int n_docs;
@@ -129,12 +128,14 @@ struct UserSpecifiedInput {
     }
 };
 
-// 求query与doc全集内各数据交集个数平均分 topk (k=100); 这里定义item交集分数为：
-// query[i] >= doc[j](0 <= i < query_size, 0 <= j < doc_size) 算一个交集, 平均分为 query与doc交集数目 / max(query_size, doc_size)
+// intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
+// score = total_intersection(query,doc) / max(query_size, doc_size)
+// note: query/doc vec must sorted by ASC
 void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
                            std::vector<std::vector<uint16_t>>& docs,
                            std::vector<uint16_t>& lens,
-                           std::vector<std::vector<int>>& indices  // shape [querys.size(), TOPK]
+                           std::vector<std::vector<int>>& indices,  // shape [querys.size(), topk]
+                           std::vector<std::vector<float>>& scores  // shape [querys.size(), topk]
 ) {
 #ifdef DEBUG
     printf("doc_query_scoring_cpu query_size:%zu\t docs_size:%zu\t lens_size:%zu\n", querys.size(), docs.size(), lens.size());
@@ -157,12 +158,13 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
             s_indices[id] = id;
         }
 
-        int i = 0;
-        std::vector<float> scores(docs.size());
+        std::vector<float> s_scores(docs.size());
         for (int doc_id = 0; doc_id < docs.size(); doc_id++) {
-            int tmp_score = 0;
-            auto& doc = docs[doc_id];
+            int i = 0;
+            float tmp_score = 0;
+            auto doc = docs[doc_id];
             for (int j = 0; j < doc.size(); j++) {
+                // todo: hash/bitmap (just for int, but if embedding float/double don't ok)
                 while (i < query.size() && query[i] < doc[j]) {
                     i++;
                 }
@@ -170,38 +172,52 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
                     tmp_score += (query[i] == doc[j]);
                 }
             }
-            scores[doc_id] = tmp_score / std::max(query.size(), doc.size());
+            s_scores[doc_id] = tmp_score / std::max(query.size(), doc.size());
         }
+#ifdef DEBUG
         std::cout << "query:" << std::endl;
         print(query);
         std::cout << "scores:" << std::endl;
-        print(scores);
-
-        // sort scores with min heap Heap-based sort
+        print(s_scores);
+#endif
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         int topk = docs.size() > TOPK ? TOPK : docs.size();
+        // sort scores with Heap-based select topk sort
+        // todo: Bitonic sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
-                          [&scores](const int& a, const int& b) {
-                              if (scores[a] != scores[b]) {
-                                  return scores[a] > scores[b];  // 按照分数降序排序
+                          [&s_scores](const int& a, const int& b) {
+                              if (s_scores[a] != s_scores[b]) {
+                                  return s_scores[a] > s_scores[b];  // by score DESC
                               }
-                              return a < b;  // 如果分数相同，按索引从小到大排序
+                              return a < b;  // the same score, by index ASC
                           });
-        std::vector<int> s_ans(s_indices.begin(), s_indices.begin() + topk);
-        indices.push_back(s_ans);
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::cout << "partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
+
+        std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
+        indices.push_back(topk_doc_ids);
+
+        std::vector<float> topk_scores(topk_doc_ids.size());
+        int i = 0;
+        for (auto doc_id : topk_doc_ids) {
+            topk_scores[i++] = s_scores[doc_id];
+        }
+        scores.push_back(topk_scores);
     }
 }
 
 void doc_query_scoring(std::vector<std::vector<uint16_t>>& querys,
                        std::vector<std::vector<uint16_t>>& docs,
                        std::vector<uint16_t>& lens,
-                       std::vector<std::vector<int>>& indices  // shape [querys.size(), TOPK]
+                       std::vector<std::vector<int>>& indices,  // shape [querys.size(), TOPK]
+                       std::vector<std::vector<float>>& scores  // shape [querys.size(), TOPK]
 ) {
 #ifdef GPU
-    doc_query_scoring_gpu()
+    doc_query_scoring_gpu(querys, docs, lens, indices, scores);
 #endif
 
 #ifdef CPU
-        doc_query_scoring_cpu(querys, docs, lens, indices);
+    doc_query_scoring_cpu(querys, docs, lens, indices, scores);
 #endif
 }
 
@@ -217,30 +233,33 @@ int main(int argc, char* argv[]) {
     std::cout << "start get topk" << std::endl;
 
     // read file
+    // note: big file need split some small file for map/reduce
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     UserSpecifiedInput inputs(query_file_dir, doc_file_name);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::cout << "read file cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
 
-    // score topk
+    // score topk, just instruction bound, no io
 #ifdef CPU_CONCURENCY
     int concurrency = std::thread::hardware_concurrency();
     std::cout << "hardware concurrency:" << concurrency << std::endl;
     ThreadPool pool(concurrency);
-    std::vector<std::future<std::vector<std::vector<int>>>> results;
+    std::vector<std::future<DocScores>> results;
     int split_docs_size = int(inputs.docs.size() / concurrency);
     std::cout << "split_docs_size:" << split_docs_size << std::endl;
-    for (int i = 0; i < concurrency; ++i) {
+    for (int i = 0; i < concurrency && split_docs_size > 0; ++i) {
         int start = i * split_docs_size;
         int end = start + split_docs_size - 1;
         results.emplace_back(
             pool.enqueue([&inputs, start, end] {
-                std::vector<std::vector<int>> indices;
+                std::vector<std::vector<int>> sub_indices;
+                std::vector<std::vector<float>> sub_scores;
                 std::vector<std::vector<uint16_t>> sub_docs = sub_vec(inputs.docs, start, end);
                 std::vector<uint16_t> sub_doc_lens = sub_vec(inputs.doc_lens, start, end);
                 // printf("start:%d\tend:%d\t; sub_docs_size:%zu\t sub_doc_lens_size:%zu\n", start, end, sub_docs.size(), sub_doc_lens.size());
-                doc_query_scoring(inputs.querys, sub_docs, sub_doc_lens, indices);
-                return indices;
+                doc_query_scoring(inputs.querys, sub_docs, sub_doc_lens, sub_indices, sub_scores);
+                DocScores ds(sub_indices, sub_scores);
+                return ds;
             }));
     }
     if (inputs.docs.size() % concurrency > 0) {
@@ -249,29 +268,88 @@ int main(int argc, char* argv[]) {
         results.emplace_back(
             pool.enqueue([&inputs, start, end] {
                 std::vector<std::vector<int>> sub_indices;
+                std::vector<std::vector<float>> sub_scores;
                 std::vector<std::vector<uint16_t>> sub_docs = sub_vec(inputs.docs, start, end);
                 std::vector<uint16_t> sub_doc_lens = sub_vec(inputs.doc_lens, start, end);
                 // printf("start:%d\tend:%d\t; sub_docs_size:%zu\t sub_doc_lens_size:%zu\n", start, end, sub_docs.size(), sub_doc_lens.size());
-                doc_query_scoring(inputs.querys, sub_docs, sub_doc_lens, sub_indices);
-                return sub_indices;
+                doc_query_scoring(inputs.querys, sub_docs, sub_doc_lens, sub_indices, sub_scores);
+                DocScores ds(sub_indices, sub_scores);
+                return ds;
             }));
     }
 
-    std::vector<std::vector<int>> indices;
+    std::vector<std::vector<int>> s_indices(inputs.querys.size());
+    std::vector<std::vector<float>> s_scores(inputs.querys.size());
     for (auto&& result : results) {
         auto res = result.get();
-        if (res.size() == 0) {
+        if (res.indices.size() == 0) {
             continue;
         }
-        std::cout << "reslut ";
-        for (auto vec : res) {
-            print(vec);
+        std::cout << "doc_ids ";
+        int q_id = 0;
+        for (auto& doc_ids : res.indices) {
+            s_indices[q_id].reserve(s_indices[q_id].size() + doc_ids.size());
+            s_indices[q_id].insert(s_indices[q_id].end(), doc_ids.begin(), doc_ids.end());
+            print(doc_ids);
+            q_id++;
+        }
+
+        std::cout << "scores ";
+        q_id = 0;
+        for (auto doc_scores : res.scores) {
+            s_scores[q_id].reserve(s_scores[q_id].size() + res.scores[q_id].size());
+            s_scores[q_id].insert(s_scores[q_id].end(), res.scores[q_id].begin(), res.scores[q_id].end());
+            print(doc_scores);
+            q_id++;
         }
         std::cout << std::endl;
     }
+
+    std::cout << "after merge,doc_ids ";
+    for (auto& doc_ids : s_indices) {
+        print(doc_ids);
+    }
+    std::cout << "after merge,scores ";
+    for (auto& doc_scores : s_scores) {
+        print(doc_scores);
+    }
+
+    std::vector<std::vector<int>> indices;
+    int topk = inputs.docs.size() > TOPK ? TOPK : inputs.docs.size();
+    for (int q_id = 0; q_id < inputs.querys.size(); q_id++) {
+        auto doc_ids = s_indices[q_id];
+        std::vector<int> idx(doc_ids.size());
+        // init index for partial sort with score
+        for (int id = 0; id < doc_ids.size(); ++id) {
+            idx[id] = id;
+        }
+        auto doc_scores = s_scores[q_id];
+        // sort scores with Heap-based select topk sort
+        // todo: Bitonic sort
+        std::partial_sort(idx.begin(), idx.begin() + topk, idx.end(),
+                          [&doc_scores](const int& a, const int& b) {
+                              if (doc_scores[a] != doc_scores[b]) {
+                                  return doc_scores[a] > doc_scores[b];  // by score DESC
+                              }
+                              return a < b;  // the same score, by index ASC
+                          });
+        std::vector<int> topk_idxes(idx.begin(), idx.begin() + topk);
+        std::vector<int> topk_doc_ids(topk_idxes.size());
+        int i = 0;
+        for (auto index : topk_idxes) {
+            topk_doc_ids[i++] = doc_ids[index];
+        }
+        indices.push_back(topk_doc_ids);
+    }
+    std::cout << "indices ";
+    for (auto& ind : indices) {
+        print(ind);
+    }
+
 #else
     std::vector<std::vector<int>> indices;
-    doc_query_scoring(inputs.querys, inputs.docs, inputs.doc_lens, indices);
+    std::vector<std::vector<float>> scores;
+    doc_query_scoring(inputs.querys, inputs.docs, inputs.doc_lens, indices, scores);
 #endif
 
     std::chrono::high_resolution_clock::time_point t3 = std::chrono::high_resolution_clock::now();
