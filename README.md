@@ -1,5 +1,5 @@
 # task
-给定850万条规模的数据文件，每条数据是最大128维度的整型id向量 （称为doc），id取值范围是0-50000，给定一个最大128维的整型id向量（称为query），数据集可以扩散进行优化
+给定850万条规模的数据文件(big data)，每条数据是最大128维度的整型id向量 （称为doc），id取值范围是0-50000，给定一个最大128维的整型id向量（称为query），数据集可以扩散进行优化
 ```shell
 # 生成测试数据,已升序排序,默认docs文件每行算一个文档,10个文档; 10个query文件
 make gen
@@ -11,10 +11,11 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) 算一个交集, 平均分�
 ```
 
 # optimize
-1. currency(cpu thread pool) + parallel(gpu warp pool): cpu -> cpu thread currency -> cpu + gpu -> cpu thread currency + gpu
+1. currency(cpu thread pool) + parallel(gpu warp pool): cpu(baseline) -> cpu thread currency -> cpu + gpu -> cpu thread currency + gpu
 2. find or filter: use hash/bitmap(bloom)
-3. topk sort: heap sort (partial_sort) -> bitonic sort
-4. search: need build index (list(ivf,skip),tree or graph), orderly struct
+3. topk sort: heap sort (partial_sort) -> bitonic sort (gpu parallel)
+4. search: need build index (list(IVF,skip),tree or graph), orderly struct
+5. SIMD: for cpu arch instruction set (sse,avx2,avx512)
 
 # reference
 - https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html

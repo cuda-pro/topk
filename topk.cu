@@ -135,6 +135,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaMemcpy(scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
 
         // sort scores with Heap-based sort
+        // todo: Bitonic sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + TOPK, s_indices.end(),
                           [&scores](const int &a, const int &b) {
                               if (scores[a] != scores[b]) {
