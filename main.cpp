@@ -10,6 +10,7 @@
 #include <iostream>
 #include <random>
 #include <sstream>
+#include <unordered_map>
 #include <vector>
 
 #include "threadpool.h"
@@ -27,6 +28,18 @@
 #endif
 
 #define TOPK 100
+
+size_t get_file_size(const char* fileName) {
+    if (fileName == NULL) {
+        return 0;
+    }
+
+    struct stat statbuf;
+    stat(fileName, &statbuf);
+    size_t filesize = statbuf.st_size;
+
+    return filesize;
+}
 
 template <typename T>
 void print(std::vector<T> const& v) {
@@ -160,19 +173,18 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
             s_indices[id] = id + start_doc_id;
         }
 
+        // int query map <query_token, cn>
+        std::unordered_map<uint16_t, int> map_query(query.size());
+        for (auto q : query) {
+            map_query[q]++;
+        }
+
         std::vector<float> s_scores(docs.size());
         for (int id = 0; id < docs.size(); id++) {
-            int i = 0;
             float tmp_score = 0;
             auto doc = docs[id];
             for (int j = 0; j < doc.size(); j++) {
-                // todo: hash/bitmap (just for int, but if embedding float/double don't ok)
-                while (i < query.size() && query[i] < doc[j]) {
-                    i++;
-                }
-                if (i < query.size()) {
-                    tmp_score += (query[i] == doc[j]);
-                }
+                tmp_score += map_query[doc[j]];
             }
             s_scores[id] = tmp_score / std::max(query.size(), doc.size());
         }
@@ -182,7 +194,6 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
         std::cout << "scores:" << std::endl;
         print(s_scores);
 #endif
-        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         int topk = docs.size() > TOPK ? TOPK : docs.size();
         // sort scores with Heap-based select topk sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
@@ -192,8 +203,6 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
                               }
                               return a < b;  // the same score, by doc_id ASC
                           });
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        // std::cout << "partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
 
         std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
         indices.push_back(topk_doc_ids);

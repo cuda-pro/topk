@@ -15,14 +15,17 @@ note: just optimize stand-alone, for dist m/r arch to schedule this instance
 1. currency(cpu thread pool) + parallel(gpu warp pool): cpu(baseline) -> cpu thread currency -> cpu + gpu -> cpu thread currency + gpu => dist
 2. find or filter: use hash/bitmap(bloom)
 3. topk sort: heap sort (partial_sort) -> bitonic sort (gpu parallel)
-4. search: need build index (list(IVF,skip),tree or graph), orderly struct
+4. search: need build index (list(IVF,skip),tree or graph), orderly struct/model
 5. SIMD: for cpu arch instruction set (sse,avx2,avx512 etc..)
+6. IO stream pipeline: for r query/docs file and w res file
 
 # reference
 - https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 - https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
 - https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html
 - https://docs.nvidia.com/cuda/cuda-runtime-api/index.html
+- https://docs.nvidia.com/cuda/thrust/index.html
+- https://stotko.github.io/stdgpu/api/memory.html
 - https://www.youtube.com/watch?v=cOBtkPsgkus
 
 

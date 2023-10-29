@@ -1,4 +1,12 @@
-CC=gcc
+CXX ?= g++
+CXXSTD ?= c++11
+CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread
+
+NVCC ?= nvcc
+NVCCSTD ?= c++11
+NVCCFLAGS ?= -std=$(NVCCSTD)
+NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
+
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O3
 ifeq ($(BUILD_TYPE),Debug)
@@ -7,6 +15,9 @@ endif
 
 DOC_CN?=10
 QUERY_CN?=10
+TARGETS = build_cpu build_cpu_concurency 
+
+all: $(TARGETS)
 
 init:
 	mkdir -p bin
@@ -16,30 +27,41 @@ gen:
 	@bash gen_querys.sh $(QUERY_CN)
 
 build_cpu: init
-	g++ ./main.cpp -o ./bin/query_doc_scoring_cpu  -I./ -std=c++11 -pthread \
+	$(CXX) ./main.cpp -o ./bin/query_doc_scoring_cpu  \
+		-I./ \
+		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-g 
 
 build_cpu_concurency: init
-	g++ ./main.cpp -o ./bin/query_doc_scoring_cpu_concurency  -I./ -std=c++11 -pthread -DCPU_CONCURENCY \
+	$(CXX) ./main.cpp -o ./bin/query_doc_scoring_cpu_concurency  \
+		-I./ \
+		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
+		-DCPU_CONCURENCY \
 		-g 
 
 build_cpu_gpu: init
-	nvcc ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_gpu  \
-		-I./ -L/usr/local/cuda/lib64 -lcudart -lcuda \
+	$(NVCC) ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_gpu  \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
 build_cpu_concurency_gpu: init
-	nvcc ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_concurency_gpu  \
-		-I./ -L/usr/local/cuda/lib64 -lcudart -lcuda \
-		-DCPU_CONCURENCY \
+	$(NVCC) ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_concurency_gpu  \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
+		-DCPU_CONCURENCY \
 		-g
 
 build_examples: init
-	g++ -o bin/example_threadpool example_threadpool.cpp -std=c++11 -pthread \
+	$(CXX) -o bin/example_threadpool example_threadpool.cpp \
+		-I./ \
+		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 

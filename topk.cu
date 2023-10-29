@@ -55,7 +55,7 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
                     break;
                     // return;
                 }
-                // todo: hash/bitmap (just for int, but if embedding float/double don't ok)
+                // todo: hashmap/bitmap (just for int, but if embedding float/double don't ok)
                 while (query_idx < query_len && query_on_shm[query_idx] < doc_segment[j]) {
                     ++query_idx;
                 }
@@ -76,7 +76,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
 ) {
     auto n_docs = docs.size();
-    std::vector<float> scores(n_docs);
+    std::vector<float> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
 
     float *d_scores = nullptr;
@@ -132,19 +132,26 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                                                                           d_doc_lens, n_docs, d_query, query_len, d_scores);
         cudaDeviceSynchronize();
 
-        cudaMemcpy(scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
+        cudaMemcpy(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
 
         // sort scores with Heap-based sort
         // todo: Bitonic sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + TOPK, s_indices.end(),
-                          [&scores](const int &a, const int &b) {
-                              if (scores[a] != scores[b]) {
-                                  return scores[a] > scores[b];  // by score DESC
+                          [&s_scores](const int &a, const int &b) {
+                              if (s_scores[a] != s_scores[b]) {
+                                  return s_scores[a] > s_scores[b];  // by score DESC
                               }
                               return a < b;  // the same score, by index ASC
                           });
         std::vector<int> s_ans(s_indices.begin(), s_indices.begin() + TOPK);
         indices.push_back(s_ans);
+
+        std::vector<float> doc_scores(s_ans.size());
+        int i = 0;
+        for (auto idx : s_indices) {
+            doc_scores[i++] = s_scores[idx];
+        }
+        scores.push_back(doc_scores);
 
         cudaFree(d_query);
     }

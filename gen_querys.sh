@@ -1,4 +1,7 @@
 #!/bin/bash
+#"Exit immediately if a simple command exits with a non-zero status."
+set -e
+
 query_cn=`expr $RANDOM % 10 + 1`
 query_size=`expr $RANDOM % 128 + 1`
 [ -n "$1" ] && query_cn=$1
