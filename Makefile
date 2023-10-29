@@ -2,7 +2,7 @@ CC=gcc
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O3
 ifeq ($(BUILD_TYPE),Debug)
-    OPTIMIZE_CFLAGS=-O1
+    OPTIMIZE_CFLAGS=-O0
 endif
 
 DOC_CN?=10
@@ -42,6 +42,13 @@ build_examples: init
 	g++ -o bin/example_threadpool example_threadpool.cpp -std=c++11 -pthread \
 		$(OPTIMIZE_CFLAGS) \
 		-g
+
+run:
+	bin/query_doc_scoring_cpu testdata/docs.txt testdata/query testdata/res_cpu.txt
+	bin/query_doc_scoring_cpu_concurency testdata/docs.txt testdata/query testdata/res_cpu_concurency.txt
+
+diff:
+	diff testdata/res_cpu.txt  testdata/res_cpu_concurency.txt
 
 
 clean:

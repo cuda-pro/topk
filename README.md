@@ -11,11 +11,12 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) 算一个交集, 平均分�
 ```
 
 # optimize
-1. currency(cpu thread pool) + parallel(gpu warp pool): cpu(baseline) -> cpu thread currency -> cpu + gpu -> cpu thread currency + gpu
+note: just optimize stand-alone, for dist m/r arch to schedule this instance
+1. currency(cpu thread pool) + parallel(gpu warp pool): cpu(baseline) -> cpu thread currency -> cpu + gpu -> cpu thread currency + gpu => dist
 2. find or filter: use hash/bitmap(bloom)
 3. topk sort: heap sort (partial_sort) -> bitonic sort (gpu parallel)
 4. search: need build index (list(IVF,skip),tree or graph), orderly struct
-5. SIMD: for cpu arch instruction set (sse,avx2,avx512)
+5. SIMD: for cpu arch instruction set (sse,avx2,avx512 etc..)
 
 # reference
 - https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html

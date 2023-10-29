@@ -186,11 +186,11 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
         int topk = docs.size() > TOPK ? TOPK : docs.size();
         // sort scores with Heap-based select topk sort
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
-                          [&s_scores](const int& a, const int& b) {
-                              if (s_scores[a] != s_scores[b]) {
-                                  return s_scores[a] > s_scores[b];  // by score DESC
+                          [&s_scores, start_doc_id](const int& a, const int& b) {
+                              if (s_scores[a - start_doc_id] != s_scores[b - start_doc_id]) {
+                                  return s_scores[a - start_doc_id] > s_scores[b - start_doc_id];  // by score DESC
                               }
-                              return a < b;  // the same score, by index ASC
+                              return a < b;  // the same score, by doc_id ASC
                           });
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         // std::cout << "partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
