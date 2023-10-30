@@ -2,9 +2,10 @@ CXX ?= g++
 CXXSTD ?= c++11
 CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread
 
+ARCH ?= 70
 NVCC ?= nvcc
 NVCCSTD ?= c++11
-NVCCFLAGS ?= -std=$(NVCCSTD)
+NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" -gencode arch=compute_${ARCH},code=sm_${ARCH} --expt-relaxed-constexpr
 NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
 
 BUILD_TYPE ?= Debug
@@ -47,6 +48,7 @@ build_cpu_gpu: init
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
 		-g
 
 build_cpu_concurency_gpu: init
@@ -56,6 +58,7 @@ build_cpu_concurency_gpu: init
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-DCPU_CONCURENCY \
+		-DGPU \
 		-g
 
 build_examples: init

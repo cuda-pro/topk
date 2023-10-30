@@ -88,6 +88,68 @@ struct DocScores {
     }
 };
 
+struct UserTopkQueryDocsInputPipeline {
+    int n_docs;
+    std::vector<std::vector<uint16_t>> querys;
+    std::vector<std::vector<uint16_t>> docs;
+    std::vector<uint16_t> doc_lens;
+    int worker_pool_size;
+    std::vector<std::future<DocScores>> results;
+    int split_docs_size;
+
+    UserTopkQueryDocsInputPipeline(std::string qf, std::string df, int wk_size, int split_size) {
+        worker_pool_size = wk_size;
+        split_docs_size = split_size;
+        topk_pipeline(qf, df);
+    }
+
+    void topk_pipeline(std::string query_file_dir, std::string docs_file_name) {
+        ThreadPool pool(worker_pool_size);
+        std::stringstream ss;
+        std::string tmp_str;
+        std::string tmp_index_str;
+
+        std::vector<std::string> files = getFilesInDirectory(query_file_dir);
+        for (const auto& query_file_name : files) {
+            std::vector<uint16_t> single_query;
+
+            std::ifstream query_file(query_file_dir + "/" + query_file_name);
+            while (std::getline(query_file, tmp_str)) {
+                ss.clear();
+                ss << tmp_str;
+                std::cout << query_file_name << ":" << tmp_str << std::endl;
+                while (std::getline(ss, tmp_index_str, ',')) {
+                    single_query.emplace_back(std::stoi(tmp_index_str));
+                }
+            }
+            query_file.close();
+            ss.clear();
+            std::sort(single_query.begin(), single_query.end());  // pre-sort the query
+            querys.emplace_back(single_query);
+        }
+        std::cout << "query_size: " << querys.size() << std::endl;
+
+        int line_cn = 0;
+        std::ifstream docs_file(docs_file_name);
+        while (std::getline(docs_file, tmp_str)) {
+            std::vector<uint16_t> next_doc;
+            ss.clear();
+            ss << tmp_str;
+            while (std::getline(ss, tmp_index_str, ',')) {
+                next_doc.emplace_back(std::stoi(tmp_index_str));
+            }
+            docs.emplace_back(next_doc);
+            doc_lens.emplace_back(next_doc.size());
+            // todo: send task to thread pool
+            line_cn++;
+        }
+        docs_file.close();
+        ss.clear();
+        n_docs = docs.size();
+        std::cout << "doc_size: " << docs.size() << std::endl;
+    }
+};
+
 struct UserSpecifiedInput {
     int n_docs;
     std::vector<std::vector<uint16_t>> querys;
@@ -133,7 +195,6 @@ struct UserSpecifiedInput {
             }
             docs.emplace_back(next_doc);
             doc_lens.emplace_back(next_doc.size());
-            // todo: send task to thread pool
         }
         docs_file.close();
         ss.clear();
@@ -225,9 +286,7 @@ void doc_query_scoring(std::vector<std::vector<uint16_t>>& querys,
 ) {
 #ifdef GPU
     doc_query_scoring_gpu(querys, docs, lens, indices, scores);
-#endif
-
-#ifdef CPU
+#else
     doc_query_scoring_cpu(querys, start_doc_id, docs, lens, indices, scores);
 #endif
 }

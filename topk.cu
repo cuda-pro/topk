@@ -21,9 +21,15 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     const __restrict__ uint16_t *docs,
     const int *doc_lens, const size_t n_docs,
     uint16_t *query, const int query_len, float *scores) {
+#ifdef DEBUG
+    printf("tid:%d GPU from block(%d, %d, %d), thread(%d, %d, %d)\n ",
+           tid,
+           blockIdx.x,
+           blockIdx.y, blockIdx.z,
+           threadIdx.x, threadIdx.y, threadIdx.z);
+#endif
     // each thread process one doc-query pair scoring task
     register auto tid = blockIdx.x * blockDim.x + threadIdx.x, tnum = gridDim.x * blockDim.x;
-
     if (tid >= n_docs) {
         return;
     }
@@ -127,6 +133,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         // launch kernel
         int block = N_THREADS_IN_ONE_BLOCK;
         int grid = (n_docs + block - 1) / block;
+
         // cudaLaunchKernel
         docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block>>>(d_docs,
                                                                           d_doc_lens, n_docs, d_query, query_len, d_scores);
@@ -148,11 +155,10 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         std::vector<float> doc_scores(s_ans.size());
         int i = 0;
-        for (auto idx : s_indices) {
+        for (auto idx : s_ans) {
             doc_scores[i++] = s_scores[idx];
         }
         scores.push_back(doc_scores);
-
         cudaFree(d_query);
     }
 
