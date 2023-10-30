@@ -285,7 +285,7 @@ void doc_query_scoring(std::vector<std::vector<uint16_t>>& querys,
                        std::vector<std::vector<float>>& scores  // shape [querys.size(), TOPK]
 ) {
 #ifdef GPU
-    doc_query_scoring_gpu(querys, docs, lens, indices, scores);
+    doc_query_scoring_gpu(querys, start_doc_id, docs, lens, indices, scores);
 #else
     doc_query_scoring_cpu(querys, start_doc_id, docs, lens, indices, scores);
 #endif

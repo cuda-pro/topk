@@ -76,6 +76,7 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
 }
 
 void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
+                           int start_doc_id,
                            std::vector<std::vector<uint16_t>> &docs,
                            std::vector<uint16_t> &lens,
                            std::vector<std::vector<int>> &indices,  // shape [querys.size(), TOPK]
@@ -123,7 +124,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     for (auto &query : querys) {
         // init indices
         for (int i = 0; i < n_docs; ++i) {
-            s_indices[i] = i;
+            s_indices[i] = i + start_doc_id;
         }
 
         const size_t query_len = query.size();
@@ -134,31 +135,39 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         int block = N_THREADS_IN_ONE_BLOCK;
         int grid = (n_docs + block - 1) / block;
 
+        std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
         docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block>>>(d_docs,
                                                                           d_doc_lens, n_docs, d_query, query_len, d_scores);
         cudaDeviceSynchronize();
-
         cudaMemcpy(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
+        std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
+        // std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
 
+        std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
+        int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
         // sort scores with Heap-based sort
         // todo: Bitonic sort
-        std::partial_sort(s_indices.begin(), s_indices.begin() + TOPK, s_indices.end(),
-                          [&s_scores](const int &a, const int &b) {
-                              if (s_scores[a] != s_scores[b]) {
-                                  return s_scores[a] > s_scores[b];  // by score DESC
+        std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
+                          [&s_scores, start_doc_id](const int &a, const int &b) {
+                              if (s_scores[a - start_doc_id] != s_scores[b - start_doc_id]) {
+                                  return s_scores[a - start_doc_id] > s_scores[b - start_doc_id];  // by score DESC
                               }
                               return a < b;  // the same score, by index ASC
                           });
-        std::vector<int> s_ans(s_indices.begin(), s_indices.begin() + TOPK);
-        indices.push_back(s_ans);
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        // std::cout << "heap partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t).count() << " ms " << std::endl;
 
-        std::vector<float> doc_scores(s_ans.size());
+        std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
+        indices.push_back(topk_doc_ids);
+
+        std::vector<float> topk_scores(topk_doc_ids.size());
         int i = 0;
-        for (auto idx : s_ans) {
-            doc_scores[i++] = s_scores[idx];
+        for (auto doc_id : topk_doc_ids) {
+            topk_scores[i++] = s_scores[doc_id - start_doc_id];
         }
-        scores.push_back(doc_scores);
+        scores.push_back(topk_scores);
+
         cudaFree(d_query);
     }
 
