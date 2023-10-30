@@ -18,7 +18,7 @@
 // golang/rust compile feature (GPU,DEBUG,CPU) like this define
 // #define DEBUG
 #define CPU
-// #define CPU_CONCURENCY
+// #define CPU_CONCURRENCY
 // #define GPU
 
 #ifdef GPU
@@ -310,7 +310,7 @@ int main(int argc, char* argv[]) {
     std::cout << "read file cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
 
     // score topk, just instruction bound, no io
-#ifdef CPU_CONCURENCY
+#ifdef CPU_CONCURRENCY
     int concurrency = std::thread::hardware_concurrency();
     std::cout << "hardware concurrency:" << concurrency << std::endl;
     ThreadPool pool(concurrency);

@@ -16,7 +16,7 @@ endif
 
 DOC_CN?=10
 QUERY_CN?=10
-TARGETS = build_cpu build_cpu_concurency 
+TARGETS = build_cpu build_cpu_concurrency 
 
 all: $(TARGETS)
 
@@ -34,12 +34,12 @@ build_cpu: init
 		$(OPTIMIZE_CFLAGS) \
 		-g 
 
-build_cpu_concurency: init
-	$(CXX) ./main.cpp -o ./bin/query_doc_scoring_cpu_concurency  \
+build_cpu_concurrency: init
+	$(CXX) ./main.cpp -o ./bin/query_doc_scoring_cpu_concurrency  \
 		-I./ \
 		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
-		-DCPU_CONCURENCY \
+		-DCPU_CONCURRENCY \
 		-g 
 
 build_cpu_gpu: init
@@ -51,13 +51,13 @@ build_cpu_gpu: init
 		-DGPU \
 		-g
 
-build_cpu_concurency_gpu: init
-	$(NVCC) ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_concurency_gpu  \
+build_cpu_concurrency_gpu: init
+	$(NVCC) ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_concurrency_gpu  \
 		-I./ \
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
-		-DCPU_CONCURENCY \
+		-DCPU_CONCURRENCY \
 		-DGPU \
 		-g
 
@@ -70,10 +70,10 @@ build_examples: init
 
 run:
 	bin/query_doc_scoring_cpu testdata/docs.txt testdata/query testdata/res_cpu.txt
-	bin/query_doc_scoring_cpu_concurency testdata/docs.txt testdata/query testdata/res_cpu_concurency.txt
+	bin/query_doc_scoring_cpu_concurrency testdata/docs.txt testdata/query testdata/res_cpu_concurrency.txt
 
 diff:
-	diff testdata/res_cpu.txt  testdata/res_cpu_concurency.txt
+	diff testdata/res_cpu.txt  testdata/res_cpu_concurrency.txt
 
 
 clean:

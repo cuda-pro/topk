@@ -15,7 +15,7 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) calculates an intersection, 
 
 # optimize
 note: just optimize stand-alone, for dist m/r arch to schedule those instances
-1. currency(cpu thread pool) + parallel(cpu openMP + gpu warp pool): cpu(baseline) -> cpu thread currency -> cpu + gpu -> cpu thread currency/parallel + gpu => dist
+1. concurrency(cpu thread pool) + parallel(cpu openMP + gpu warp pool): cpu(baseline) -> cpu thread concurrency -> cpu + gpu -> cpu thread concurrency/parallel + gpu => dist
 2. find or filter: use hash/bitmap(bloom)
 3. topk sort: heap sort (partial_sort) -> bitonic sort (gpu parallel)
 4. search: need build index (list(IVF,skip),tree or graph), orderly struct/model
