@@ -12,6 +12,42 @@
 
 #include "topk.h"
 
+#define CHECK(call)                                                          \
+    {                                                                        \
+        const cudaError_t error = call;                                      \
+        if (error != cudaSuccess) {                                          \
+            printf("ERROR: %s:%d,", __FILE__, __LINE__);                     \
+            printf("code:%d,reason:%s\n", error, cudaGetErrorString(error)); \
+            exit(1);                                                         \
+        }                                                                    \
+    }
+
+int show_mem_usage() {
+    cudaError_t err;
+    // show memory usage of GPU
+    size_t free_byte;
+    size_t total_byte;
+    err = cudaMemGetInfo(&free_byte, &total_byte);
+    CUDA_CHECK(err, "check memory info.");
+    size_t used_byte = total_byte - free_byte;
+    printf("GPU memory usage: used = %4.2lf MB, free = %4.2lf MB, total = %4.2lf MB\n",
+           used_byte / 1024.0 / 1024.0, free_byte / 1024.0 / 1024.0, total_byte / 1024.0 / 1024.0);
+    return cudaSuccess;
+}
+
+int getThreadNum() {
+    cudaDeviceProp prop;
+    int count;
+
+    HANDLE_ERROR(cudaGetDeviceCount(&count));
+    printf("gpu num %d\n", count);
+    HANDLE_ERROR(cudaGetDeviceProperties(&prop, 0));
+    printf("max thread num: %d\n", prop.maxThreadsPerBlock);
+    printf("max grid dimensions: %d, %d, %d)\n",
+           prop.maxGridSize[0], prop.maxGridSize[1], prop.maxGridSize[2]);
+    return prop.maxThreadsPerBlock;
+}
+
 typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
 
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
@@ -44,9 +80,7 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
 
     for (auto doc_id = tid; doc_id < n_docs; doc_id += tnum) {
         register int query_idx = 0;
-
         register float tmp_score = 0.;
-
         register bool no_more_load = false;
 
         for (auto i = 0; i < MAX_DOC_SIZE / (sizeof(group_t) / sizeof(uint16_t)); i++) {
@@ -130,6 +164,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         const size_t query_len = query.size();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
         cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
+        show_mem_usage();
 
         // launch kernel
         int block = N_THREADS_IN_ONE_BLOCK;

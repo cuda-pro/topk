@@ -22,28 +22,12 @@ note: just optimize stand-alone, for dist m/r arch to schedule those instances
 5. SIMD: for cpu arch instruction set (intel cpu sse,avx2,avx512 etc..)
 6. IO stream pipeline: for r query/docs file, (batch per thread, parallel Accelerators) , w res file
 
-# reference
-- https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
-- https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
-- https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html
-- https://docs.nvidia.com/cuda/cuda-runtime-api/index.html
-- https://docs.nvidia.com/cuda/thrust/index.html
-- https://nvlabs.github.io/cub/index.html
-- https://stotko.github.io/stdgpu/api/memory.html
-- https://www.youtube.com/watch?v=cOBtkPsgkus
-- https://www.csd.uwo.ca/~mmorenom/HPC-Slides/Many_core_computing_with_CUDA.pdf
-- [Exploring Performance Portability for Accelerators via High-level Parallel Patterns](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=4Ab_NBkAAAAJ&citation_for_view=4Ab_NBkAAAAJ:hqOjcs7Dif8C), [PPT](https://pdfs.semanticscholar.org/b34a/f7c4739d622379fa31a1e88155335061c1b1.pdf)
-- https://zhuanlan.zhihu.com/p/52344300
-- 
-- https://passlab.github.io/OpenMPProgrammingBook/cover.html
-  
-
-
-## code
-1. https://github.com/Funatiq/bb_segsort
-2. https://github.com/anilshanbhag/gpu-topk
-3. https://github.com/heavyai/heavydb/blob/master/QueryEngine/TopKSort.cu
-
+# [reference](./docs/reference.md)
 ## paper
 1. [Fast Segmented Sort on GPUs.](https://raw.github.com/weedge/learn/main/gpu/Fast%20Segmented%20Sort%20on%20GPUs.pdf)
 2. [Efficient Top-K query processing on massively parallel hardware](https://raw.githubusercontent.com/weedge/learn/main/gpu/Efficient%20Top-K%20Query%20Processing%20on%20Massively%20Parallel%20Hardware.pdf)
+  
+## code
+1. https://github.com/vtsynergy/bb_segsort (k/v), https://github.com/Funatiq/bb_segsort (k,k/v)
+2. https://github.com/anilshanbhag/gpu-topk
+3. https://github.com/heavyai/heavydb/blob/master/QueryEngine/TopKSort.cu
