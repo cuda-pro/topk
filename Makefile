@@ -51,6 +51,15 @@ build_cpu_gpu: init
 		-DGPU \
 		-g
 
+build_cpu_gpu_doc_stream: init
+	$(NVCC) ./main.cpp ./topk_doc_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_doc_stream  \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
+		-g
+
 build_cpu_concurrency_gpu: init
 	$(NVCC) ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_concurrency_gpu  \
 		-I./ \

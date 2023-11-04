@@ -8,7 +8,7 @@
 
 #define MAX_DOC_SIZE 128
 #define MAX_QUERY_SIZE 4096
-#define N_THREADS_IN_ONE_BLOCK 1024
+#define N_THREADS_IN_ONE_BLOCK 512
 #define TOPK 100
 
 /*

@@ -7,7 +7,10 @@
 - https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
 - https://nvlabs.github.io/cub/index.html
 - https://stotko.github.io/stdgpu/api/memory.html
+- 
 - https://www.youtube.com/watch?v=cOBtkPsgkus
+- **https://www.youtube.com/watch?v=Na9_2G6niMw**
+- 
 - https://www.csd.uwo.ca/~mmorenom/HPC-Slides/Many_core_computing_with_CUDA.pdf
 - [Exploring Performance Portability for Accelerators via High-level Parallel Patterns](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=4Ab_NBkAAAAJ&citation_for_view=4Ab_NBkAAAAJ:hqOjcs7Dif8C), [PPT](https://pdfs.semanticscholar.org/b34a/f7c4739d622379fa31a1e88155335061c1b1.pdf)
 
@@ -16,3 +19,6 @@
 - https://zhuanlan.zhihu.com/p/52344300
 - 
 - https://passlab.github.io/OpenMPProgrammingBook/cover.html
+- 
+
+- https://developer.nvidia.com/blog/maximizing-performance-with-massively-parallel-hash-maps-on-gpus/
