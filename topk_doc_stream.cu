@@ -134,18 +134,25 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
         cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
 
-        // todo: last docs_chunk_size
         int docs_offset = 0;
+        int docs_len = 0;
+        if (n_docs % N_STREAM == 0) {
+            docs_len = docs_chunk_size;
+        }
         const int docs_chunk_size = n_docs / N_STREAM;
         for (int i = 0; i < N_STREAM; i++) {
+            // last docs_chunk_size
+            if (n_docs % N_STREAM > 0 && i == N_STREAM - 1) {
+                docs_len = docs_chunk_size + n_docs % N_STREAM;
+            }
             doc_offset = i * docs_chunk_size;
             cudaMemcpyAsync(d_docs + size_t(sizeof(uint16_t) * MAX_DOC_SIZE * docs_offset),
                             h_docs + size_t(sizeof(uint16_t) * MAX_DOC_SIZE * docs_offset),
-                            sizeof(uint16_t) * MAX_DOC_SIZE * docs_chunk_size,
+                            sizeof(uint16_t) * MAX_DOC_SIZE * docs_len,
                             cudaMemcpyHostToDevice, doc_streams[i]);
             cudaMemcpyAsync(d_doc_lens + size_t(sizeof(int) * docs_offset),
                             h_doc_lens_vec.data() + size_t(sizeof(int) * docs_offset),
-                            sizeof(int) * docs_offset,
+                            sizeof(int) * docs_len,
                             cudaMemcpyHostToDevice, doc_streams[i]);
             // launch kernel
             int block = N_THREADS_IN_ONE_BLOCK;
@@ -153,14 +160,14 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
             docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block, 0, doc_streams[i]>>>(
                 d_docs + size_t(sizeof(uint16_t) * MAX_DOC_SIZE * docs_offset),
                 d_doc_lens + size_t(sizeof(int) * docs_offset),
-                doc_offset, d_query, query_len,
+                docs_len, d_query, query_len,
                 d_scores + size_t(sizeof(float) * docs_offset));
 
             cudaMemcpyAsync(s_scores.data() + size_t(sizeof(float) * docs_offset),
                             d_scores + size_t(sizeof(float) * docs_offset),
-                            sizeof(float) * docs_offset, cudaMemcpyDeviceToHost, doc_streams[i]);
+                            sizeof(float) * docs_len, cudaMemcpyDeviceToHost, doc_streams[i]);
             cudaStreamSynchronize(doc_streams[i]);
-            std::cout << "stream_id:  " << i << " doc_offset:" << doc_offset << std::endl;
+            std::cout << "stream_id:  " << i << " docs_len:" << docs_len << std::endl;
         }
 
         int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
