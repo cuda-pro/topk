@@ -11,6 +11,24 @@
 #define N_THREADS_IN_ONE_BLOCK 512
 #define TOPK 100
 
+#ifdef DEBUG
+#define CUDA_CALL(F)                                                          \
+    if ((F) != cudaSuccess) {                                                 \
+        printf("Error %s at %s:%d\n", cudaGetErrorString(cudaGetLastError()), \
+               __FILE__, __LINE__);                                           \
+        exit(-1);                                                             \
+    }
+#define CUDA_CHECK()                                                          \
+    if ((cudaPeekAtLastError()) != cudaSuccess) {                             \
+        printf("Error %s at %s:%d\n", cudaGetErrorString(cudaGetLastError()), \
+               __FILE__, __LINE__ - 1);                                       \
+        exit(-1);                                                             \
+    }
+#else
+#define CUDA_CALL(F) (F)
+#define CUDA_CHECK()
+#endif
+
 /*
 // Amazing~ no last params, nvcc compile ok, run is ok....
 void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &query,

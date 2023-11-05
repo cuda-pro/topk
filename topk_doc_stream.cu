@@ -1,28 +1,6 @@
-
-#include <chrono>
-
 #include "topk.h"
 
-#ifdef DEBUG
-#define CUDA_CALL(F)                                                          \
-    if ((F) != cudaSuccess) {                                                 \
-        printf("Error %s at %s:%d\n", cudaGetErrorString(cudaGetLastError()), \
-               __FILE__, __LINE__);                                           \
-        exit(-1);                                                             \
-    }
-#define CUDA_CHECK()                                                          \
-    if ((cudaPeekAtLastError()) != cudaSuccess) {                             \
-        printf("Error %s at %s:%d\n", cudaGetErrorString(cudaGetLastError()), \
-               __FILE__, __LINE__ - 1);                                       \
-        exit(-1);                                                             \
-    }
-#else
-#define CUDA_CALL(F) (F)
-#define CUDA_CHECK()
-#endif
-
 typedef uint4 group_t;  // uint32_t
-#define N_STREAM 8;
 
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     const __restrict__ uint16_t *docs,
@@ -75,12 +53,12 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     }
 }
 
-void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
-                                    int start_doc_id,
-                                    std::vector<std::vector<uint16_t>> &docs,
-                                    std::vector<uint16_t> &lens,
-                                    std::vector<std::vector<int>> &indices,  // shape [querys.size(), TOPK]
-                                    std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
+void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
+                           int start_doc_id,
+                           std::vector<std::vector<uint16_t>> &docs,
+                           std::vector<uint16_t> &lens,
+                           std::vector<std::vector<int>> &indices,  // shape [querys.size(), TOPK]
+                           std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
 ) {
     auto n_docs = docs.size();
     std::vector<float> s_scores(n_docs);
@@ -117,16 +95,18 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
     cudaGetDeviceProperties(&device_props, 0);
     cudaSetDevice(0);
 
-    // doc stream
-    cudaStream_t *doc_streams = (cudaStream_t *)malloc(N_STREAM * sizeof(cudaStream_t));
-    for (int i = 0; i < N_STREAM; i++) {
-        cudaStreamCreate(&doc_streams[i]);
-    }
-
     for (auto &query : querys) {
         // init indices
         for (int i = 0; i < n_docs; ++i) {
             s_indices[i] = i + start_doc_id;
+        }
+
+        // doc stream
+        const int N_STREAM = 8;
+        cudaStream_t doc_streams[N_STREAM];
+        std::cout << " Creating " << N_STREAM << " CUDA streams." << std::endl;
+        for (int i = 0; i < N_STREAM; i++) {
+            CUDA_CALL(cudaStreamCreate(&doc_streams[i]));
         }
 
         // init query global memory
@@ -134,41 +114,39 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
         cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
 
-        int docs_offset = 0;
-        int docs_len = 0;
-        if (n_docs % N_STREAM == 0) {
-            docs_len = docs_chunk_size;
-        }
         const int docs_chunk_size = n_docs / N_STREAM;
+        int docs_offset = 0;
+        int docs_len = docs_chunk_size;
         for (int i = 0; i < N_STREAM; i++) {
             // last docs_chunk_size
             if (n_docs % N_STREAM > 0 && i == N_STREAM - 1) {
                 docs_len = docs_chunk_size + n_docs % N_STREAM;
             }
-            doc_offset = i * docs_chunk_size;
-            cudaMemcpyAsync(d_docs + size_t(sizeof(uint16_t) * MAX_DOC_SIZE * docs_offset),
-                            h_docs + size_t(sizeof(uint16_t) * MAX_DOC_SIZE * docs_offset),
-                            sizeof(uint16_t) * MAX_DOC_SIZE * docs_len,
-                            cudaMemcpyHostToDevice, doc_streams[i]);
-            cudaMemcpyAsync(d_doc_lens + size_t(sizeof(int) * docs_offset),
-                            h_doc_lens_vec.data() + size_t(sizeof(int) * docs_offset),
-                            sizeof(int) * docs_len,
-                            cudaMemcpyHostToDevice, doc_streams[i]);
+            docs_offset = i * docs_chunk_size;
+            CUDA_CALL(cudaMemcpyAsync(d_docs + MAX_DOC_SIZE * docs_offset,
+                                      h_docs + MAX_DOC_SIZE * docs_offset,
+                                      sizeof(uint16_t) * MAX_DOC_SIZE * docs_len,
+                                      cudaMemcpyHostToDevice, doc_streams[i]));
+            CUDA_CALL(cudaMemcpyAsync(d_doc_lens + docs_offset,
+                                      h_doc_lens_vec.data() + docs_offset,
+                                      sizeof(int) * docs_len,
+                                      cudaMemcpyHostToDevice, doc_streams[i]));
             // launch kernel
             int block = N_THREADS_IN_ONE_BLOCK;
-            int grid = (doc_offset + block - 1) / block;
+            int grid = (docs_len + block - 1) / block;
             docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block, 0, doc_streams[i]>>>(
-                d_docs + size_t(sizeof(uint16_t) * MAX_DOC_SIZE * docs_offset),
-                d_doc_lens + size_t(sizeof(int) * docs_offset),
+                d_docs + MAX_DOC_SIZE * docs_offset,
+                d_doc_lens + docs_offset,
                 docs_len, d_query, query_len,
-                d_scores + size_t(sizeof(float) * docs_offset));
+                d_scores + docs_offset);
 
-            cudaMemcpyAsync(s_scores.data() + size_t(sizeof(float) * docs_offset),
-                            d_scores + size_t(sizeof(float) * docs_offset),
-                            sizeof(float) * docs_len, cudaMemcpyDeviceToHost, doc_streams[i]);
-            cudaStreamSynchronize(doc_streams[i]);
+            CUDA_CALL(cudaMemcpyAsync(s_scores.data() + docs_offset,
+                                      d_scores + docs_offset,
+                                      sizeof(float) * docs_len, cudaMemcpyDeviceToHost, doc_streams[i]));
+            CUDA_CALL(cudaStreamSynchronize(doc_streams[i]));
             std::cout << "stream_id:  " << i << " docs_len:" << docs_len << std::endl;
         }
+        CUDA_CHECK();
 
         int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
         // sort scores with Heap-based sort
@@ -190,11 +168,11 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
         }
         scores.push_back(topk_scores);
 
-        cudaFree(d_query);
-    }
+        for (int i = 0; i < N_STREAM; i++) {
+            cudaStreamDestroy(doc_streams[i]);
+        }
 
-    for (int i = 0; i < N_STREAM; i++) {
-        cudaStreamDestroy(doc_streams[i]);
+        cudaFree(d_query);
     }
 
     // deallocation
@@ -204,7 +182,5 @@ void doc_query_scoring_gpu_function(std::vector<std::vector<uint16_t>> &querys,
     cudaFree(d_doc_lens);
     free(h_docs);
 
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-    free(q_streams);
+    // free(doc_streams);
 }

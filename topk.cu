@@ -12,23 +12,11 @@
 
 #include "topk.h"
 
-#define CHECK(call)                                                          \
-    {                                                                        \
-        const cudaError_t error = call;                                      \
-        if (error != cudaSuccess) {                                          \
-            printf("ERROR: %s:%d,", __FILE__, __LINE__);                     \
-            printf("code:%d,reason:%s\n", error, cudaGetErrorString(error)); \
-            exit(1);                                                         \
-        }                                                                    \
-    }
-
 int show_mem_usage() {
-    cudaError_t err;
     // show memory usage of GPU
     size_t free_byte;
     size_t total_byte;
-    err = cudaMemGetInfo(&free_byte, &total_byte);
-    CUDA_CHECK(err, "check memory info.");
+    CUDA_CALL(cudaMemGetInfo(&free_byte, &total_byte));
     size_t used_byte = total_byte - free_byte;
     printf("GPU memory usage: used = %4.2lf MB, free = %4.2lf MB, total = %4.2lf MB\n",
            used_byte / 1024.0 / 1024.0, free_byte / 1024.0 / 1024.0, total_byte / 1024.0 / 1024.0);
@@ -39,9 +27,9 @@ int getThreadNum() {
     cudaDeviceProp prop;
     int count;
 
-    HANDLE_ERROR(cudaGetDeviceCount(&count));
+    CUDA_CALL(cudaGetDeviceCount(&count));
     printf("gpu num %d\n", count);
-    HANDLE_ERROR(cudaGetDeviceProperties(&prop, 0));
+    CUDA_CALL(cudaGetDeviceProperties(&prop, 0));
     printf("max thread num: %d\n", prop.maxThreadsPerBlock);
     printf("max grid dimensions: %d, %d, %d)\n",
            prop.maxGridSize[0], prop.maxGridSize[1], prop.maxGridSize[2]);
@@ -95,7 +83,6 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
                     break;
                     // return;
                 }
-                // todo: hashmap/bitmap (just for int, but if embedding float/double don't ok)
                 while (query_idx < query_len && query_on_shm[query_idx] < doc_segment[j]) {
                     ++query_idx;
                 }
@@ -147,8 +134,15 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         h_doc_lens_vec[i] = docs[i].size();
     }
 
+    std::chrono::high_resolution_clock::time_point dt = std::chrono::high_resolution_clock::now();
     cudaMemcpy(d_docs, h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaMemcpyHostToDevice);
+    std::chrono::high_resolution_clock::time_point dt1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaMemcpy H2D docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dt1 - dt).count() << " ms " << std::endl;
+
+    std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
     cudaMemcpy(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+    std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaMemcpy H2D doc_lens cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dlt1 - dlt).count() << " ms " << std::endl;
 
     // use one gpu device
     cudaDeviceProp device_props;
@@ -163,7 +157,11 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         const size_t query_len = query.size();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
+        std::chrono::high_resolution_clock::time_point qt = std::chrono::high_resolution_clock::now();
         cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
+        std::chrono::high_resolution_clock::time_point qt1 = std::chrono::high_resolution_clock::now();
+        std::cout << "cudaMemcpy H2D query cost " << std::chrono::duration_cast<std::chrono::milliseconds>(qt1 - qt).count() << " ms " << std::endl;
+
         show_mem_usage();
 
         // launch kernel
@@ -177,7 +175,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaDeviceSynchronize();
         cudaMemcpy(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
-        // std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
+        std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
         int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
@@ -191,7 +189,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                               return a < b;  // the same score, by index ASC
                           });
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-        // std::cout << "heap partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t).count() << " ms " << std::endl;
+        std::cout << "heap partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t).count() << " ms " << std::endl;
 
         std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
         indices.push_back(topk_doc_ids);
