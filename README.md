@@ -21,7 +21,7 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 3. topk sort: heap sort (partial_sort) on cpu -> bitonic/radix sort on gpu parallel topk,then reduce topk to cpu
 4. search: need build index (list(IVF,skip),tree, graph), orderly struct/model
 5. SIMD: for cpu arch instruction set (intel cpu sse,avx2,avx512 etc..)
-6. IO stream pipeline: for r query/docs file, (batch per thread, parallel Accelerators) , w res file
+6. IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
 
 # [reference](./docs/reference.md)
 ## paper
@@ -30,6 +30,7 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 3. [stdgpu: Efficient STL-like Data Structures on the GPU](https://www.researchgate.net/publication/335233070_stdgpu_Efficient_STL-like_Data_Structures_on_the_GPU)
   
 ## code
+0. https://github.com/rapidsai/cudf/pull/8702
 1. https://github.com/vtsynergy/bb_segsort (k/v), https://github.com/Funatiq/bb_segsort (k,k/v)
 2. https://github.com/anilshanbhag/gpu-topk
 3. https://github.com/heavyai/heavydb/blob/master/QueryEngine/TopKSort.cu

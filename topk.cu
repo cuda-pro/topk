@@ -112,11 +112,15 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     int *d_doc_lens = nullptr;
 
     // copy to device
+    std::chrono::high_resolution_clock::time_point dat = std::chrono::high_resolution_clock::now();
     cudaMalloc(&d_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
     cudaMalloc(&d_scores, sizeof(float) * n_docs);
     cudaMalloc(&d_doc_lens, sizeof(int) * n_docs);
+    std::chrono::high_resolution_clock::time_point dat1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaMalloc docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dat1 - dat).count() << " ms " << std::endl;
 
     // pre align docs -> h_docs [n_docs,MAX_DOC_SIZE], h_doc_lens_vec[n_docs]
+    std::chrono::high_resolution_clock::time_point dgt = std::chrono::high_resolution_clock::now();
     uint16_t *h_docs = new uint16_t[MAX_DOC_SIZE * n_docs];
     memset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
     std::vector<int> h_doc_lens_vec(n_docs);
@@ -133,6 +137,8 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         }
         h_doc_lens_vec[i] = docs[i].size();
     }
+    std::chrono::high_resolution_clock::time_point dgt1 = std::chrono::high_resolution_clock::now();
+    std::cout << "align group docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dgt1 - dgt).count() << " ms " << std::endl;
 
     std::chrono::high_resolution_clock::time_point dt = std::chrono::high_resolution_clock::now();
     cudaMemcpy(d_docs, h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaMemcpyHostToDevice);
