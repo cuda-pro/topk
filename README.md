@@ -14,7 +14,8 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) calculates an intersection, 
 ```
 
 # optimize
-note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those instances
+note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those instances.
+
 0. gpu device RR balance by user request
 1. concurrency(cpu thread pool) + parallel(cpu openMP + gpu warp threads): cpu(baseline) -> cpu thread concurrency -> cpu + gpu -> cpu thread concurrency/parallel + gpu stream concurrency/warp thread parallel => dist
 2. find or filter: use hashmap/bitmap(bloom) on cpu/gpu global memory or gpu shared memory
@@ -24,14 +25,16 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 6. IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
 
 # [reference](./docs/reference.md)
-## paper
+## view paper
 1. [Fast Segmented Sort on GPUs.](https://raw.github.com/weedge/learn/main/gpu/Fast%20Segmented%20Sort%20on%20GPUs.pdf)
 2. [Efficient Top-K query processing on massively parallel hardware](https://raw.githubusercontent.com/weedge/learn/main/gpu/Efficient%20Top-K%20Query%20Processing%20on%20Massively%20Parallel%20Hardware.pdf)
 3. [stdgpu: Efficient STL-like Data Structures on the GPU](https://www.researchgate.net/publication/335233070_stdgpu_Efficient_STL-like_Data_Structures_on_the_GPU)
-  
-## code
-0. https://github.com/rapidsai/cudf/pull/8702
-1. https://github.com/vtsynergy/bb_segsort (k/v), https://github.com/Funatiq/bb_segsort (k,k/v)
-2. https://github.com/anilshanbhag/gpu-topk
-3. https://github.com/heavyai/heavydb/blob/master/QueryEngine/TopKSort.cu
-4. https://github.com/rapidsai/raft/blob/branch-23.12/cpp/include/raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh
+4. [Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods](https://sc23.supercomputing.org/presentation/?id=pap294&sess=sess156)
+
+## view code
+1. https://github.com/rapidsai/cudf/pull/8702 , https://github.com/rapidsai/cudf/blob/branch-23.12/cpp/tests/io/text/multibyte_split_test.cpp
+2. https://github.com/vtsynergy/bb_segsort (k/v), https://github.com/Funatiq/bb_segsort (k,k/v)
+3. https://github.com/anilshanbhag/gpu-topk
+4. https://github.com/heavyai/heavydb/blob/master/QueryEngine/TopKSort.cu
+5. https://github.com/rapidsai/raft/blob/branch-23.12/cpp/include/raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh
+6. https://github.com/rapidsai/raft/blob/branch-23.12/cpp/include/raft/matrix/select_k.cuh , https://github.com/rapidsai/raft/blob/branch-23.12/cpp/test/matrix/select_k.cuh
