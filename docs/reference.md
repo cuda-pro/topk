@@ -22,3 +22,5 @@
 - 
 
 - https://developer.nvidia.com/blog/maximizing-performance-with-massively-parallel-hash-maps-on-gpus/
+
+- https://github.com/rapidsai/raft/blob/branch-23.12/docs/source/vector_search_tutorial.md
