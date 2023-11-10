@@ -27,6 +27,43 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 
 # result
 add read file chunk topk on gpu, run on google colab A100
+
+## cpu_readfile -> vec docs -> cpu_topk (cpu_baseline)
+
+1. read file cost from 33054 ms(line/per) 
+2. topk cost 87230 ms 
+3. all cost 120284 ms 
+
+---
+
+## cpu_readfile -> vec docs split -> cpu_concurrency_topk 
+use thread_pool thread num: cpu core num a100 (12 cores)
+
+1. read file cost from 33054 ms(line/per) 
+2. topk cost 14206 ms, reduce: (87230-14206)/87230=**83.71%** compare with `cpu_baseline`  
+3. all cost 47654 ms, reduce: (120284-47654)/120284=**60.38%** compare with `cpu_baseline`  
+
+---
+
+## cpu_readfile -> vec docs -> gpu_cpu_topk (gpu_baseline)
+
+1. read file cost from 33054 ms(line/per) 
+2. topk cost 2504 ms, reduce: (87230-2504)/87230=**97.13%** compare with `cpu_baseline`  ;  (14206-2504)/14206=**97.13%** compare with `cpu_concurrency`  
+3. all cost 36026 ms, reduce: (120284-36026)/120284=**70.05%** compare with `cpu_baseline`  ; (47654-36026)/47654=**24.40%** compare with `cpu_concurrency`  
+
+---
+
+## cpu_readfile -> vec docs split -> cpu_concurency_gpu_topk  : (
+
+1. read file cost from 33054 ms(line/per) 
+2. topk cost 2915 ms, increase: (2915-2504)/2915=**14.10%** compare with `gpu_baseline` ;
+3. all cost 36230 ms, increase: (36230-36026)/36230=**00.56%** compare with `gpu_baseline` ; 
+
+increase **cpu context switch cost** 
+
+---
+
+
 ## gpu_readfile -> vec docs -> gpu_cpu_topk
 
 1. read file cost from 34274 ms(line/per) to 9196 ms(gpu chunk multi_split), cost reduce (34274-9196)/34274 = **73.17%**
