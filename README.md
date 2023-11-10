@@ -22,7 +22,8 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 3. topk sort: heap sort (partial_sort) on cpu -> bitonic/radix sort on gpu parallel topk,then reduce topk to cpu
 4. search: need build index (list(IVF,skip),tree, graph), orderly struct/model
 5. SIMD: for cpu arch instruction set (intel cpu sse,avx2,avx512 etc..)
-6. IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
+6. sequential IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
+7. resources pool
 
 # result
 add read file chunk topk on gpu, run on google colab A100
@@ -40,6 +41,18 @@ add read file chunk topk on gpu, run on google colab A100
 3. total cost reduce (11589 - 7021)/11589 = **39.42%** compare with `gpu read file chunk to cpu vec docs then load to gpu rank topk`
 
 ---
+
+## (gpu_readfile -> gpu_chunk_topk -> gpu_cpu_topk) + stream pool + rmm 
+(todo)
+
+---
+
+## use select k -> sort -> top k. gpu accelerate
+ (todo)
+
+---
+
+detail see: [my_colab_gpu_topk.ipynb](https://github.com/weedge/doraemon-nb/blob/main/my_colab_gpu_topk.ipynb)
 
 
 # [reference](./docs/reference.md)
