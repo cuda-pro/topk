@@ -3,10 +3,12 @@ CXXSTD ?= c++11
 CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread
 
 ARCH ?= 70
+ARCH_CODE ?= -gencode arch=compute_${ARCH},code=sm_${ARCH} 
 NVCC ?= nvcc
 NVCCSTD ?= c++11
-NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" -gencode arch=compute_${ARCH},code=sm_${ARCH} --expt-relaxed-constexpr
+NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
 NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
+NVCCLIB_CUDF ?= -L/lib -lcudf -I/include 
 
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O3
@@ -51,15 +53,6 @@ build_cpu_gpu: init
 		-DGPU \
 		-g
 
-build_cpu_gpu_doc_stream: init
-	$(NVCC) ./main.cpp ./topk_doc_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_doc_stream  \
-		-I./ \
-		$(NVCCLIB_CUDA) \
-		$(NVCCFLAGS) \
-		$(OPTIMIZE_CFLAGS) \
-		-DGPU \
-		-g
-
 build_cpu_concurrency_gpu: init
 	$(NVCC) ./main.cpp ./topk.cu -o ./bin/query_doc_scoring_cpu_concurrency_gpu  \
 		-I./ \
@@ -70,10 +63,57 @@ build_cpu_concurrency_gpu: init
 		-DGPU \
 		-g
 
-build_examples: init
+build_cpu_gpu_doc_stream: init
+	$(NVCC) ./main.cpp ./topk_doc_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_doc_stream  \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
+		-g
+
+build_cpu_gpu_readfile: init
+	$(NVCC) ./main.cpp ./readfile.cu ./topk.cu -o ./bin/query_doc_scoring_cpu_gpu_readfile \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDF) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU -DFMT_HEADER_ONLY -DPIO \
+		-g
+
+build_gpu_cudf_strings: init
+	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_cudf_strings.cu -o ./bin/query_doc_scoring_gpu_cudf_strings \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDF) \
+		$(OPTIMIZE_CFLAGS) \
+		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
+		-g
+
+build_examples: init build_example_threadpool build_example_readfile_cpu build_example_readfile_gpu
+
+build_example_threadpool:
 	$(CXX) -o bin/example_threadpool example_threadpool.cpp \
 		-I./ \
 		$(CXXFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-g
+
+build_example_readfile_cpu:
+	$(NVCC) -o bin/example_readfile_cpu example_readfile.cpp -DFMT_HEADER_ONLY \
+		-I./ \
+		$(CXXFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-g
+
+build_example_readfile_gpu:
+	$(NVCC) -o bin/example_readfile_gpu example_readfile.cpp readfile.cu -DGPU -DFMT_HEADER_ONLY \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDF) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
@@ -84,6 +124,18 @@ run:
 diff:
 	diff testdata/res_cpu.txt  testdata/res_cpu_concurrency.txt
 
+profile_cpu_gpu:
+	nvprof --print-gpu-trace bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
+	nsys profile  -o report_cpu_gpu.nsys-rep bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
+	ncu --set full --call-stack --nvtx -o report_cpu_gpu bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
+
+profile_cpu_concurency_gpu:
+	nvprof --print-gpu-trace bin/query_doc_scoring_cpu_concurency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
+	nsys profile  -o report_cpu_concurrency_gpu.nsys-rep bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
+	ncu --set full --call-stack --nvtx -o report_cpu_concurrency_gpu bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
+
+#nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu testdata/docs.txt testdata/query testdata/res_gpu.txt
+#nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu_doc_stream testdata/docs.txt testdata/query test
 
 clean:
 	rm -rf bin/*

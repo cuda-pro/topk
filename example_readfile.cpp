@@ -16,7 +16,7 @@
 
 #define BUFFER_SIZE 1024 * 1024 * 512
 
-void get_file_line(std::string docs_file_name, std::vector<std::vector<uint16_t>> &docs, std::vector<uint16_t> &doc_lens) {
+void load_file_line(std::string docs_file_name, std::vector<std::vector<uint16_t>> &docs, std::vector<uint16_t> &doc_lens) {
     std::stringstream ss;
     std::string tmp_str;
     std::string tmp_index_str;
@@ -37,7 +37,7 @@ void get_file_line(std::string docs_file_name, std::vector<std::vector<uint16_t>
     ss.clear();
 }
 
-void get_file_buffer(std::string docs_file_name, std::vector<std::vector<uint16_t>> &docs, std::vector<uint16_t> &doc_lens) {
+void load_file_buffer(std::string docs_file_name, std::vector<std::vector<uint16_t>> &docs, std::vector<uint16_t> &doc_lens) {
     std::stringstream sl;
     std::stringstream ss;
     std::string tmp_str;
@@ -91,14 +91,14 @@ int main(int argc, char *argv[]) {
     std::vector<std::vector<uint16_t>> docs;
     std::vector<uint16_t> doc_lens;
     if (method == "line") {
-        get_file_line(file, docs, doc_lens);
+        load_file_line(file, docs, doc_lens);
     } else if (method == "buffer") {
-        get_file_buffer(file, docs, doc_lens);
+        load_file_buffer(file, docs, doc_lens);
     } else {
 #ifdef GPU
-        get_file_cudf_chunk(file, docs, doc_lens);
+        load_file_cudf_chunk(file, docs, doc_lens);
 #else
-        get_file_buffer(file, docs, doc_lens);
+        load_file_buffer(file, docs, doc_lens);
 #endif
     }
     std::cout << "docs_size:" << docs.size() << " doc_lens_size:" << doc_lens.size() << std::endl;

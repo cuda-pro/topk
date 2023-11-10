@@ -1,18 +1,15 @@
-#include <dirent.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <sys/time.h>
 
-#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <fstream>
-#include <iostream>
 #include <random>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
 
+#include "helper.h"
 #include "threadpool.h"
 
 // golang/rust compile feature (GPU,DEBUG,CPU) like this define
@@ -22,62 +19,14 @@
 // #define GPU
 
 #ifdef GPU
-#include <cuda.h>
-
 #include "topk.h"
 #endif
 
+#if (defined(PIO) || defined(PIO_TOPK)) && defined(GPU)
+#include "readfile.h"
+#endif
+
 #define TOPK 100
-
-size_t get_file_size(const char* fileName) {
-    if (fileName == NULL) {
-        return 0;
-    }
-
-    struct stat statbuf;
-    stat(fileName, &statbuf);
-    size_t filesize = statbuf.st_size;
-
-    return filesize;
-}
-
-template <typename T>
-void print(std::vector<T> const& v) {
-    for (auto i : v) {
-        std::cout << i << ' ';
-    }
-    std::cout << std::endl;
-}
-
-template <typename T>
-std::vector<T> sub_vec_v1(std::vector<T> const& v, int m, int n) {
-    auto first = v.cbegin() + m;
-    auto last = v.cbegin() + n + 1;
-
-    std::vector<T> vec(first, last);
-    return vec;
-}
-template <typename T>
-std::vector<T> sub_vec(std::vector<T>& v, int m, int n) {
-    std::vector<T> vec;
-    std::copy(v.begin() + m, v.begin() + n + 1, std::back_inserter(vec));
-    return vec;
-}
-
-std::vector<std::string> getFilesInDirectory(const std::string& directory) {
-    std::vector<std::string> files;
-    DIR* dirp = opendir(directory.c_str());
-    struct dirent* dp;
-    while ((dp = readdir(dirp)) != NULL) {
-        struct stat path_stat;
-        stat((directory + "/" + dp->d_name).c_str(), &path_stat);
-        if (S_ISREG(path_stat.st_mode))  // Check if it's a regular file - not a directory
-            files.push_back(dp->d_name);
-    }
-    closedir(dirp);
-    std::sort(files.begin(), files.end());  // sort the files
-    return files;
-}
 struct DocScores {
     std::vector<std::vector<int>> indices;   // shape [querys.size(), TOPK]
     std::vector<std::vector<float>> scores;  // shape [querys.size(), TOPK]
@@ -88,27 +37,22 @@ struct DocScores {
     }
 };
 
-struct UserTopkQueryDocsInputPipeline {
-    int n_docs;
+#ifdef PIO_TOPK
+struct UserTopkQueryDocScoresIOPipeline {
     std::vector<std::vector<uint16_t>> querys;
-    std::vector<std::vector<uint16_t>> docs;
-    std::vector<uint16_t> doc_lens;
-    int worker_pool_size;
-    std::vector<std::future<DocScores>> results;
-    int split_docs_size;
+    std::vector<std::vector<int>> indices;
+    std::vector<std::vector<float>> scores;
 
-    UserTopkQueryDocsInputPipeline(std::string qf, std::string df, int wk_size, int split_size) {
-        worker_pool_size = wk_size;
-        split_docs_size = split_size;
-        topk_pipeline(qf, df);
+    UserTopkQueryDocScoresIOPipeline(std::string qf, std::string df) {
+        load_queries(qf);
+        load_file_cudf_chunk_topk(df, querys, indices, scores);
     }
 
-    void topk_pipeline(std::string query_file_dir, std::string docs_file_name) {
-        ThreadPool pool(worker_pool_size);
+    // todo: if many queries file, need use thread pool to optimize the performance
+    void load_queries(std::string query_file_dir) {
         std::stringstream ss;
         std::string tmp_str;
         std::string tmp_index_str;
-
         std::vector<std::string> files = getFilesInDirectory(query_file_dir);
         for (const auto& query_file_name : files) {
             std::vector<uint16_t> single_query;
@@ -128,27 +72,9 @@ struct UserTopkQueryDocsInputPipeline {
             querys.emplace_back(single_query);
         }
         std::cout << "query_size: " << querys.size() << std::endl;
-
-        int line_cn = 0;
-        std::ifstream docs_file(docs_file_name);
-        while (std::getline(docs_file, tmp_str)) {
-            std::vector<uint16_t> next_doc;
-            ss.clear();
-            ss << tmp_str;
-            while (std::getline(ss, tmp_index_str, ',')) {
-                next_doc.emplace_back(std::stoi(tmp_index_str));
-            }
-            docs.emplace_back(next_doc);
-            doc_lens.emplace_back(next_doc.size());
-            // todo: send task to thread pool
-            line_cn++;
-        }
-        docs_file.close();
-        ss.clear();
-        n_docs = docs.size();
-        std::cout << "doc_size: " << docs.size() << std::endl;
     }
 };
+#endif
 
 struct UserSpecifiedInput {
     int n_docs;
@@ -157,14 +83,20 @@ struct UserSpecifiedInput {
     std::vector<uint16_t> doc_lens;
 
     UserSpecifiedInput(std::string qf, std::string df) {
-        load(qf, df);
+        load_queries(qf);
+#if defined(GPU) && defined(PIO)
+        load_file_cudf_chunk(df, docs, doc_lens);
+#else
+        load_docs(df);
+#endif
+        n_docs = docs.size();
     }
 
-    void load(std::string query_file_dir, std::string docs_file_name) {
+    // todo: if many queries file, need use thread pool to optimize the performance
+    void load_queries(std::string query_file_dir) {
         std::stringstream ss;
         std::string tmp_str;
         std::string tmp_index_str;
-
         std::vector<std::string> files = getFilesInDirectory(query_file_dir);
         for (const auto& query_file_name : files) {
             std::vector<uint16_t> single_query;
@@ -184,7 +116,12 @@ struct UserSpecifiedInput {
             querys.emplace_back(single_query);
         }
         std::cout << "query_size: " << querys.size() << std::endl;
+    }
 
+    void load_docs(std::string docs_file_name) {
+        std::stringstream ss;
+        std::string tmp_str;
+        std::string tmp_index_str;
         std::ifstream docs_file(docs_file_name);
         while (std::getline(docs_file, tmp_str)) {
             std::vector<uint16_t> next_doc;
@@ -198,7 +135,6 @@ struct UserSpecifiedInput {
         }
         docs_file.close();
         ss.clear();
-        n_docs = docs.size();
         std::cout << "doc_size: " << docs.size() << std::endl;
     }
 };
@@ -210,9 +146,8 @@ void doc_query_scoring_cpu(std::vector<std::vector<uint16_t>>& querys,
                            int start_doc_id,
                            std::vector<std::vector<uint16_t>>& docs,
                            std::vector<uint16_t>& lens,
-                           std::vector<std::vector<int>>& indices,  // shape [querys.size(), topk]
-                           std::vector<std::vector<float>>& scores  // shape [querys.size(), topk]
-) {
+                           std::vector<std::vector<int>>& indices,
+                           std::vector<std::vector<float>>& scores) {
 #ifdef DEBUG
     printf("doc_query_scoring_cpu query_size:%zu\t docs_size:%zu\t lens_size:%zu\n", querys.size(), docs.size(), lens.size());
     std::cout << "query:" << std::endl;
@@ -284,7 +219,7 @@ void doc_query_scoring(std::vector<std::vector<uint16_t>>& querys,
                        std::vector<std::vector<int>>& indices,  // shape [querys.size(), TOPK]
                        std::vector<std::vector<float>>& scores  // shape [querys.size(), TOPK]
 ) {
-#ifdef GPU
+#if defined(GPU) && !defined(PIO_TOPK)
     doc_query_scoring_gpu(querys, start_doc_id, docs, lens, indices, scores);
 #else
     doc_query_scoring_cpu(querys, start_doc_id, docs, lens, indices, scores);
@@ -301,10 +236,15 @@ int main(int argc, char* argv[]) {
     std::string output_file = argv[3];
 
     std::cout << "start get topk" << std::endl;
-
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+#ifdef PIO_TOPK
+    UserTopkQueryDocScoresIOPipeline io_pipeline(query_file_dir, doc_file_name);
+    std::vector<std::vector<int>> indices = io_pipeline.indices;
+    std::vector<std::vector<float>> scores = io_pipeline.scores;
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+#else
     // read file
     // note: big file need split some small file for map/reduce
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     UserSpecifiedInput inputs(query_file_dir, doc_file_name);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::cout << "read file cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms " << std::endl;
@@ -415,6 +355,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<float>> scores;
     doc_query_scoring(inputs.querys, 0, inputs.docs, inputs.doc_lens, indices, scores);
 #endif
+#endif
     std::cout << "indices: ";
     for (auto& ind : indices) {
         print(ind);
@@ -422,9 +363,9 @@ int main(int argc, char* argv[]) {
 
     std::chrono::high_resolution_clock::time_point t3 = std::chrono::high_resolution_clock::now();
     std::cout << "topk cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms " << std::endl;
-
     // get total time
     std::chrono::milliseconds total_time = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1);
+
     // write result data
     std::ofstream ofs;
     ofs.open(output_file, std::ios::out);
