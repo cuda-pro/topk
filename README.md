@@ -24,6 +24,24 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 5. SIMD: for cpu arch instruction set (intel cpu sse,avx2,avx512 etc..)
 6. IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
 
+# result
+add read file chunk topk on gpu, run on google colab A100
+## gpu_readfile -> vec docs -> gpu_cpu_topk
+
+1. read file cost from 34274 ms(line/per) to 9196 ms(gpu chunk multi_split), cost reduce (34274-9196)/34274 = **73.17%**
+2. total cost reduce (35551 - 11589)/35551 = **67.40%**
+
+---
+
+## gpu_readfile -> gpu_chunk_topk -> gpu_cpu_topk
+
+1. read file chunk pipeline to rank topk on gpu
+2. total cost reduce (35551 - 7021)/35551 = **80.25%** compare with `gpu baseline`
+3. total cost reduce (11589 - 7021)/11589 = **39.42%** compare with `gpu read file chunk to cpu vec docs then load to gpu rank topk`
+
+---
+
+
 # [reference](./docs/reference.md)
 ## view paper
 1. [Fast Segmented Sort on GPUs.](https://raw.github.com/weedge/learn/main/gpu/Fast%20Segmented%20Sort%20on%20GPUs.pdf)
