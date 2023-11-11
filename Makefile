@@ -24,6 +24,7 @@ all: $(TARGETS)
 
 init:
 	mkdir -p bin
+	mkdir -p achive
 
 gen:
 	@bash gen.sh $(DOC_CN)
@@ -125,17 +126,24 @@ diff:
 	diff testdata/res_cpu.txt  testdata/res_cpu_concurrency.txt
 
 profile_cpu_gpu:
-	nvprof --print-gpu-trace bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
+#nvprof --print-gpu-trace bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
 	nsys profile  -o report_cpu_gpu.nsys-rep bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
 	ncu --set full --call-stack --nvtx -o report_cpu_gpu bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
 
 profile_cpu_concurency_gpu:
-	nvprof --print-gpu-trace bin/query_doc_scoring_cpu_concurency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
+#nvprof --print-gpu-trace bin/query_doc_scoring_cpu_concurency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
 	nsys profile  -o report_cpu_concurrency_gpu.nsys-rep bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
 	ncu --set full --call-stack --nvtx -o report_cpu_concurrency_gpu bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
 
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu testdata/docs.txt testdata/query testdata/res_gpu.txt
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu_doc_stream testdata/docs.txt testdata/query test
+
+achive_gpu_cudf_strings: init
+	rm -f achive/gpu_cudf_strings_topk.zip
+	zip -v achive/gpu_cudf_strings_topk.zip \
+		build.sh run.sh \
+		helper.h main.cpp readfile.cu readfile.h topk.h topk_doc_cudf_strings.cu \
+		&& zip -sf achive/gpu_cudf_strings_topk.zip
 
 clean:
 	rm -rf bin/*

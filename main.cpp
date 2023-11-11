@@ -10,7 +10,9 @@
 #include <vector>
 
 #include "helper.h"
+#ifdef CPU_CONCURRENCY
 #include "threadpool.h"
+#endif
 
 // golang/rust compile feature (GPU,DEBUG,CPU) like this define
 // #define DEBUG

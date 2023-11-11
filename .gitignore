@@ -1,5 +1,7 @@
 testdata/
 bin/
+achive/
+build/
 .vscode/
 *.dSYM/
 *.swp

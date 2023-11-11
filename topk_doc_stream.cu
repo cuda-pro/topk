@@ -1,3 +1,4 @@
+#include "helper.h"
 #include "topk.h"
 
 typedef uint4 group_t;  // uint32_t
