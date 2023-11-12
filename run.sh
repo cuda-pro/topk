@@ -8,15 +8,15 @@ if [ -z "$ROOT_DIR" ]; then
 fi
 
 if [ -z "$doc_file" ]; then
-    doc_file=$(cd $(dirname $0); pwd)/translate/docs.txt
+   doc_file=./translate/docs.txt
 fi
 
 if [ -z "$output_file" ]; then
-    output_file=$(cd $(dirname $0); pwd)/translate/res/result.txt
+   output_file=./translate/res/result.txt
 fi
 
 if [ -z "$query_dir" ]; then
-    query_dir=$(cd $(dirname $0); pwd)/translate/querys
+    query_dir=./translate/querys
 fi
 
 $ROOT_DIR/bin/query_doc_scoring ${doc_file} ${query_dir} ${output_file}

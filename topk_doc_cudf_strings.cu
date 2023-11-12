@@ -105,7 +105,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaDeviceSynchronize();
         cudaMemcpy(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
-        std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
+        std::cout << "docQueryScoringCoalescedMemoryAccessKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
         int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();

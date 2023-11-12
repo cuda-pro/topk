@@ -18,13 +18,12 @@ endif
 
 DOC_CN?=10
 QUERY_CN?=10
-TARGETS = build_cpu build_cpu_concurrency 
+TARGETS?=build_cpu build_cpu_concurrency 
 
 all: $(TARGETS)
 
 init:
 	mkdir -p bin
-	mkdir -p achive
 
 gen:
 	@bash gen.sh $(DOC_CN)
@@ -125,6 +124,34 @@ run:
 diff:
 	diff testdata/res_cpu.txt  testdata/res_cpu_concurrency.txt
 
+archive_gpu_cudf_strings:
+	rm -rf archive/gpu_cudf_strings
+	mkdir -p archive/gpu_cudf_strings/{src,bin}
+	cp build_gpu_cudf_strings.sh archive/gpu_cudf_strings/build.sh
+	cp run.sh archive/gpu_cudf_strings/
+	cp helper.h main.cpp readfile.cu readfile.h topk.h topk_doc_cudf_strings.cu archive/gpu_cudf_strings/src
+	rm -f archive/gpu_cudf_strings_topk.zip
+	cd archive/gpu_cudf_strings/ && zip -v -r gpu_cudf_strings_topk.zip \
+		build.sh run.sh src \
+		&& zip -sf gpu_cudf_strings_topk.zip
+
+archive_cpu_gpu:
+	rm -rf archive/cpu_gpu
+	mkdir -p archive/cpu_gpu/{src,bin}
+	cp build_cpu_gpu.sh archive/cpu_gpu/build.sh
+	cp run.sh archive/cpu_gpu/
+	cp helper.h main.cpp topk.h topk.cu archive/cpu_gpu/src
+	rm -f archive/cpu_gpu_topk.zip
+	cd archive/cpu_gpu/ && zip -v -r cpu_gpu_topk.zip \
+		build.sh run.sh src \
+		&& zip -sf cpu_gpu_topk.zip
+
+
+get_gpu_baseline:
+	wget "https://bj.bcebos.com/v1/ai-studio-online/9805dd2d2e8e472693efac637628e16b9f9c5be0fe30438bb4a80de3b386781a?responseContentDisposition=attachment%3B%20filename%3DSTI2_1017.zip&authorization=bce-auth-v1%2F5cfe9a5e1454405eb2a975c43eace6ec%2F2023-10-18T12%3A42%3A27Z%2F-1%2F%2F6b5388dcd9013bc9b340bb1806476afa938ce0c65f2f595e1a75f529e90e4187" -O STI2_1017.zip
+	rm -rf STI2 && unzip STI2_1017.zip && mv STI2\ 2 STI2
+
+
 profile_cpu_gpu:
 #nvprof --print-gpu-trace bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
 	nsys profile  -o report_cpu_gpu.nsys-rep bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
@@ -137,13 +164,6 @@ profile_cpu_concurency_gpu:
 
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu testdata/docs.txt testdata/query testdata/res_gpu.txt
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu_doc_stream testdata/docs.txt testdata/query test
-
-achive_gpu_cudf_strings: init
-	rm -f achive/gpu_cudf_strings_topk.zip
-	zip -v achive/gpu_cudf_strings_topk.zip \
-		build.sh run.sh \
-		helper.h main.cpp readfile.cu readfile.h topk.h topk_doc_cudf_strings.cu \
-		&& zip -sf achive/gpu_cudf_strings_topk.zip
 
 clean:
 	rm -rf bin/*
