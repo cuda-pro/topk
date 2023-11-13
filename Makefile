@@ -3,12 +3,15 @@ CXXSTD ?= c++11
 CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread
 
 ARCH ?= 70
-ARCH_CODE ?= -gencode arch=compute_${ARCH},code=sm_${ARCH} 
+ARCH_CODE ?= -arch=sm_${ARCH}
+#ARCH_CODE ?= -gencode arch=compute_${ARCH},code=sm_${ARCH} 
 NVCC ?= nvcc
 NVCCSTD ?= c++11
-NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
+NVCCFLAGS ?= -std=$(NVCCSTD) --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
+#NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
 NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
 NVCCLIB_CUDF ?= -L/lib -lcudf -I/include 
+NVCCLIB_RAFT ?= -L/lib -lraft -I/include 
 
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O3
@@ -63,6 +66,15 @@ build_cpu_concurrency_gpu: init
 		-DGPU \
 		-g
 
+build_cpu_gpu_query_stream: init
+	$(NVCC) ./main.cpp ./topk_query_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_query_stream  \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
+		-g
+
 build_cpu_gpu_doc_stream: init
 	$(NVCC) ./main.cpp ./topk_doc_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_doc_stream  \
 		-I./ \
@@ -70,6 +82,25 @@ build_cpu_gpu_doc_stream: init
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-DGPU \
+		-g
+
+build_cpu_gpu_hashtable: init
+	$(NVCC) ./main.cpp ./topk_hashtable.cu -o ./bin/query_doc_scoring_cpu_gpu_hashtable \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
+		-g
+
+build_cpu_gpu_sort: init
+	$(NVCC) ./main.cpp ./topk_sort.cu -o ./bin/query_doc_scoring_cpu_gpu_sort \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_RAFT) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU -DFMT_HEADER_ONLY \
 		-g
 
 build_cpu_gpu_readfile: init

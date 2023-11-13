@@ -79,12 +79,17 @@ increase **cpu context switch cost**
 
 ---
 
+##  query hashtable + doc hashtable score
+(todo)
+
+---
+
 ## (gpu_readfile -> gpu_chunk_topk -> gpu_cpu_topk) + stream pool + rmm 
 (todo)
 
 ---
 
-## use select k -> sort -> top k. gpu accelerate
+## use auto adpter select k -> sort -> top k. gpu accelerate
  (todo)
 
 ---

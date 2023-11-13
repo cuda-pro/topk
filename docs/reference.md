@@ -15,12 +15,12 @@
 - [Exploring Performance Portability for Accelerators via High-level Parallel Patterns](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=4Ab_NBkAAAAJ&citation_for_view=4Ab_NBkAAAAJ:hqOjcs7Dif8C), [PPT](https://pdfs.semanticscholar.org/b34a/f7c4739d622379fa31a1e88155335061c1b1.pdf)
 
 -
-- https://face2ai.com/CUDA-F-6-1-%E6%B5%81%E5%92%8C%E4%BA%8B%E4%BB%B6%E6%A6%82%E8%BF%B0/
 - https://zhuanlan.zhihu.com/p/52344300
 - 
 - https://passlab.github.io/OpenMPProgrammingBook/cover.html
 - 
-
+- https://developer.nvidia.com/zh-cn/blog/using-cuda-stream-ordered-memory-allocator-part-1/
+- https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-2/
 - https://developer.nvidia.com/blog/maximizing-performance-with-massively-parallel-hash-maps-on-gpus/
-
+- 
 - https://github.com/rapidsai/raft/blob/branch-23.12/docs/source/vector_search_tutorial.md
