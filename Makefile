@@ -9,9 +9,11 @@ NVCC ?= nvcc
 NVCCSTD ?= c++11
 NVCCFLAGS ?= -std=$(NVCCSTD) --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
 #NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
+RAPIDSAI_DIR ?= 
 NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
-NVCCLIB_CUDF ?= -L/lib -lcudf -I/include 
-NVCCLIB_RAFT ?= -L/lib -lraft -I/include 
+NVCCLIB_CUDF ?= -L$(RAPIDSAI_DIR)/lib -lcudf -I$(RAPIDSAI_DIR)/include 
+NVCCLIB_RAFT ?= -L$(RAPIDSAI_DIR)/lib -lraft -I$(RAPIDSAI_DIR)/include 
+NVCCLIB_LINKER ?= -Xlinker="-rpath,$(RAPIDSAI_DIR)/lib"
 
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O3
@@ -93,22 +95,13 @@ build_cpu_gpu_hashtable: init
 		-DGPU \
 		-g
 
-build_cpu_gpu_sort: init
-	$(NVCC) ./main.cpp ./topk_sort.cu -o ./bin/query_doc_scoring_cpu_gpu_sort \
-		-I./ \
-		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
-		$(NVCCLIB_RAFT) \
-		$(OPTIMIZE_CFLAGS) \
-		-DGPU -DFMT_HEADER_ONLY \
-		-g
-
 build_cpu_gpu_readfile: init
 	$(NVCC) ./main.cpp ./readfile.cu ./topk.cu -o ./bin/query_doc_scoring_cpu_gpu_readfile \
 		-I./ \
 		$(NVCCFLAGS) \
 		$(NVCCLIB_CUDA) \
 		$(NVCCLIB_CUDF) \
+		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-DGPU -DFMT_HEADER_ONLY -DPIO \
 		-g
@@ -119,9 +112,22 @@ build_gpu_cudf_strings: init
 		$(NVCCFLAGS) \
 		$(NVCCLIB_CUDA) \
 		$(NVCCLIB_CUDF) \
+		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
 		-g
+
+build_gpu_raft_selectk: init
+	$(NVCC) ./main.cpp ./topk_raft_selectk.cu -o ./bin/query_doc_scoring_gpu_raft_selectk \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_RAFT) \
+		$(NVCCLIB_LINKER) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU -DFMT_HEADER_ONLY \
+		-g
+
 
 build_examples: init build_example_threadpool build_example_readfile_cpu build_example_readfile_gpu
 
@@ -145,6 +151,7 @@ build_example_readfile_gpu:
 		$(NVCCFLAGS) \
 		$(NVCCLIB_CUDA) \
 		$(NVCCLIB_CUDF) \
+		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
@@ -154,17 +161,6 @@ run:
 
 diff:
 	diff testdata/res_cpu.txt  testdata/res_cpu_concurrency.txt
-
-archive_gpu_cudf_strings:
-	rm -rf archive/gpu_cudf_strings
-	mkdir -p archive/gpu_cudf_strings/{src,bin}
-	cp build_gpu_cudf_strings.sh archive/gpu_cudf_strings/build.sh
-	cp run.sh archive/gpu_cudf_strings/
-	cp helper.h main.cpp readfile.cu readfile.h topk.h topk_doc_cudf_strings.cu archive/gpu_cudf_strings/src
-	rm -f archive/gpu_cudf_strings_topk.zip
-	cd archive/gpu_cudf_strings/ && zip -v -r gpu_cudf_strings_topk.zip \
-		build.sh run.sh src \
-		&& zip -sf gpu_cudf_strings_topk.zip
 
 archive_cpu_gpu:
 	rm -rf archive/cpu_gpu
@@ -177,6 +173,27 @@ archive_cpu_gpu:
 		build.sh run.sh src \
 		&& zip -sf cpu_gpu_topk.zip
 
+archive_gpu_cudf_strings:
+	rm -rf archive/gpu_cudf_strings
+	mkdir -p archive/gpu_cudf_strings/{src,bin}
+	cp build_gpu_cudf_strings.sh archive/gpu_cudf_strings/build.sh
+	cp run.sh archive/gpu_cudf_strings/
+	cp helper.h main.cpp readfile.cu readfile.h topk.h topk_doc_cudf_strings.cu archive/gpu_cudf_strings/src
+	rm -f archive/gpu_cudf_strings_topk.zip
+	cd archive/gpu_cudf_strings/ && zip -v -r gpu_cudf_strings_topk.zip \
+		build.sh run.sh src \
+		&& zip -sf gpu_cudf_strings_topk.zip
+
+archive_gpu_raft_selectk:
+	rm -rf archive/gpu_raft_selectk
+	mkdir -p archive/gpu_raft_selectk/{src,bin}
+	cp build_gpu_raft_selectk.sh archive/gpu_raft_selectk/build.sh
+	cp run.sh archive/gpu_raft_selectk/
+	cp helper.h main.cpp topk.h topk_raft_selectk.cu archive/gpu_raft_selectk/src
+	rm -f archive/gpu_raft_selectk_topk.zip
+	cd archive/gpu_raft_selectk/ && zip -v -r gpu_raft_selectk_topk.zip \
+		build.sh run.sh src \
+		&& zip -sf gpu_raft_selectk_topk.zip
 
 get_gpu_baseline:
 	wget "https://bj.bcebos.com/v1/ai-studio-online/9805dd2d2e8e472693efac637628e16b9f9c5be0fe30438bb4a80de3b386781a?responseContentDisposition=attachment%3B%20filename%3DSTI2_1017.zip&authorization=bce-auth-v1%2F5cfe9a5e1454405eb2a975c43eace6ec%2F2023-10-18T12%3A42%3A27Z%2F-1%2F%2F6b5388dcd9013bc9b340bb1806476afa938ce0c65f2f595e1a75f529e90e4187" -O STI2_1017.zip

@@ -18,6 +18,7 @@
 - https://zhuanlan.zhihu.com/p/52344300
 - 
 - https://passlab.github.io/OpenMPProgrammingBook/cover.html
+- https://www.openmp.org/updates/openmp-accelerator-support-gpus/
 - 
 - https://developer.nvidia.com/zh-cn/blog/using-cuda-stream-ordered-memory-allocator-part-1/
 - https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-2/

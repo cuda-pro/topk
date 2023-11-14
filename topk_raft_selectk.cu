@@ -10,9 +10,9 @@
  * its affiliates is strictly prohibited.
  */
 
+#include <stdint.h>
 #include <raft/sparse/detail/utils.h>
 
-#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -106,6 +106,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     std::cout << "cudaMalloc docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dat1 - dat).count() << " ms " << std::endl;
 
     // pre align docs -> h_docs [n_docs,MAX_DOC_SIZE], h_doc_lens_vec[n_docs]
+    // todo: pre align docs on gpu global memory
     std::chrono::high_resolution_clock::time_point dgt = std::chrono::high_resolution_clock::now();
     uint16_t *h_docs = new uint16_t[MAX_DOC_SIZE * n_docs];
     memset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
@@ -188,7 +189,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         auto out_idx_span = raft::make_mdspan<int, int64_t, raft::row_major, false, true>(d_out_ids.data(), out_extent);
 
         // note: if in_idx_span is null use std::nullopt prevents automatic inference of the template parameters.
-        raft::matrix::select_k<float, int>(handle, in_span, in_idx_span, out_span, out_idx_span, false, true);
+        raft::matrix::select_k<float, int>(handle, in_span, std::optional(in_idx_span), out_span, out_idx_span, false, true);
 
         std::vector<float> topk_scores(d_out_scores.size());
         std::vector<int> topk_doc_ids(d_out_ids.size());

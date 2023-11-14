@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/stat.h>
 

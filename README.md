@@ -17,13 +17,14 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) calculates an intersection, 
 note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those instances.
 
 0. gpu device RR balance by user request
-1. concurrency(cpu thread pool) + parallel(cpu openMP + gpu warp threads): cpu(baseline) -> cpu thread concurrency -> cpu + gpu -> cpu thread concurrency/parallel + gpu stream concurrency/warp thread parallel => dist
+1. concurrency(cpu thread pool) + parallel(cpu/gpu openMP + gpu warp threads): cpu(baseline) -> cpu thread concurrency -> cpu + gpu -> cpu thread concurrency/parallel + gpu stream concurrency/warp thread parallel => dist
 2. find or filter: use hashmap/bitmap(bloom) on cpu/gpu global memory or gpu shared memory
 3. topk sort: heap sort (partial_sort) on cpu -> bitonic/radix sort on gpu parallel topk,then reduce topk to cpu
 4. search: need build index (list(IVF,skip),tree, graph), orderly struct/model
 5. SIMD: for cpu arch instruction set (intel cpu sse,avx2,avx512 etc..)
 6. sequential IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
 7. resources pool
+8. locality
 
 # result
 add read file chunk topk on gpu, run on google colab A100

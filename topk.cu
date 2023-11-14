@@ -186,9 +186,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaFree(d_query);
     }
 
-    // deallocation
     cudaFree(d_docs);
-    // cudaFree(d_query);
     cudaFree(d_scores);
     cudaFree(d_doc_lens);
     free(h_docs);
