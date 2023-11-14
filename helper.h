@@ -151,6 +151,51 @@ static std::vector<T> sub_vec(std::vector<T>& v, int m, int n) {
     return vec;
 }
 
+template <typename KeyT, typename IdxT>
+static auto topk_sort_permutation(const std::vector<KeyT>& vec,
+                                  const std::vector<IdxT>& inds,
+                                  uint32_t k,
+                                  bool select_min) -> std::vector<IdxT> {
+    std::vector<IdxT> p(vec.size());
+    std::iota(p.begin(), p.end(), 0);
+    if (select_min) {
+        std::sort(p.begin(), p.end(), [&vec, &inds, k](IdxT i, IdxT j) {
+            const IdxT ik = i / k;
+            const IdxT jk = j / k;
+            if (ik == jk) {
+                if (vec[i] == vec[j]) {
+                    return inds[i] < inds[j];
+                }
+                return vec[i] < vec[j];
+            }
+            return ik < jk;
+        });
+    } else {
+        std::sort(p.begin(), p.end(), [&vec, &inds, k](IdxT i, IdxT j) {
+            const IdxT ik = i / k;
+            const IdxT jk = j / k;
+            if (ik == jk) {
+                if (vec[i] == vec[j]) {
+                    return inds[i] < inds[j];
+                }
+                return vec[i] > vec[j];
+            }
+            return ik < jk;
+        });
+    }
+    return p;
+}
+
+template <typename KeyT, typename IdxT>
+static void apply_permutation(std::vector<KeyT>& vec, const std::vector<IdxT>& p) {
+    for (auto i = IdxT(vec.size()) - 1; i > 0; i--) {
+        auto j = p[i];
+        while (j > i)
+            j = p[j];
+        std::swap(vec[j], vec[i]);
+    }
+}
+
 #ifdef __CUDACC__
 static int show_mem_usage() {
     // show memory usage of GPU

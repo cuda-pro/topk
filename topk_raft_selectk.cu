@@ -189,18 +189,37 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         auto out_idx_span = raft::make_mdspan<int, int64_t, raft::row_major, false, true>(d_out_ids.data(), out_extent);
 
         // note: if in_idx_span is null use std::nullopt prevents automatic inference of the template parameters.
+        // raft::matrix::select_k<float, int>(handle, in_span, std::nullopt, out_span, out_idx_span, false, true);
         raft::matrix::select_k<float, int>(handle, in_span, std::optional(in_idx_span), out_span, out_idx_span, false, true);
 
-        std::vector<float> topk_scores(d_out_scores.size());
-        std::vector<int> topk_doc_ids(d_out_ids.size());
-        raft::update_host(topk_scores.data(), d_out_scores.data(), d_out_scores.size(), stream);
-        raft::update_host(topk_doc_ids.data(), d_out_ids.data(), d_out_ids.size(), stream);
+        std::vector<float> s_scores(d_out_scores.size());
+        std::vector<int> s_doc_ids(d_out_ids.size());
+        raft::update_host(s_scores.data(), d_out_scores.data(), d_out_scores.size(), stream);
+        raft::update_host(s_doc_ids.data(), d_out_ids.data(), d_out_ids.size(), stream);
         raft::interruptible::synchronize(stream);
+        // use sort permutation to sort scores and indices; u can use unorder_map.
+        std::unordered_map<int, int> indices_map;
+        for (auto i = 0; i < s_doc_ids.size(); ++i) {
+            indices_map[s_doc_ids[i]] = i;
+        }
+        std::partial_sort(s_doc_ids.begin(), s_doc_ids.begin() + topk, s_doc_ids.end(),
+                          [&s_scores, &indices_map](const int &a, const int &b) {
+                              if (s_scores[indices_map[a]] != s_scores[indices_map[b]]) {
+                                  return s_scores[indices_map[a]] > s_scores[indices_map[b]];  // by score DESC
+                              }
+                              return a < b;  // the same score, by index ASC
+                          });
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         std::cout << "raft select_k cost " << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t).count() << " microseconds" << std::endl;
 
-        scores.push_back(topk_scores);
-        indices.push_back(topk_doc_ids);
+        std::vector<int> topk_doc_ids(s_doc_ids.begin(), s_doc_ids.begin() + topk);
+        indices.emplace_back(topk_doc_ids);
+        std::vector<float> topk_scores(topk_doc_ids.size());
+        int id = 0;
+        for (auto doc_id : topk_doc_ids) {
+            topk_scores[id++] = s_scores[indices_map[doc_id]];
+        }
+        scores.emplace_back(topk_scores);
 
         cudaFree(d_query);
     }
