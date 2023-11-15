@@ -13,7 +13,8 @@
 #include "helper.h"
 #include "topk.h"
 
-typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
+// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#built-in-vector-types
+typedef uint4 group_t;  // cuda uint4: 4 * uint (32it, sizeof(uint4)=16 128bit)
 
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
 // score = total_intersection(query,doc) / max(query_size, doc_size)

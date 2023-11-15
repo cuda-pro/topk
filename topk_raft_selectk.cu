@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include <stdint.h>
 #include <raft/sparse/detail/utils.h>
 
@@ -23,7 +11,8 @@
 #include "helper.h"
 #include "topk.h"
 
-typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
+// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#built-in-vector-types
+typedef uint4 group_t;  // cuda uint4: 4 * uint (32it, sizeof(uint4)=16 128bit)
 
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
 // score = total_intersection(query,doc) / max(query_size, doc_size)
@@ -173,6 +162,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
         int topk = n_docs > TOPK ? TOPK : n_docs;
+        topk *= 2;
         int batch_size = 1;
         raft::resources handle;
         auto stream = raft::resource::get_cuda_stream(handle);
@@ -202,7 +192,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         for (auto i = 0; i < s_doc_ids.size(); ++i) {
             indices_map[s_doc_ids[i]] = i;
         }
-        std::partial_sort(s_doc_ids.begin(), s_doc_ids.begin() + topk, s_doc_ids.end(),
+        std::partial_sort(s_doc_ids.begin(), s_doc_ids.begin() + topk / 2, s_doc_ids.end(),
                           [&s_scores, &indices_map](const int &a, const int &b) {
                               if (s_scores[indices_map[a]] != s_scores[indices_map[b]]) {
                                   return s_scores[indices_map[a]] > s_scores[indices_map[b]];  // by score DESC
@@ -212,7 +202,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         std::cout << "raft select_k cost " << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t).count() << " microseconds" << std::endl;
 
-        std::vector<int> topk_doc_ids(s_doc_ids.begin(), s_doc_ids.begin() + topk);
+        std::vector<int> topk_doc_ids(s_doc_ids.begin(), s_doc_ids.begin() + topk / 2);
         indices.emplace_back(topk_doc_ids);
         std::vector<float> topk_scores(topk_doc_ids.size());
         int id = 0;

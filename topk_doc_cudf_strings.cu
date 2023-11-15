@@ -13,8 +13,6 @@
 #include "helper.h"
 #include "topk.h"
 
-typedef uint4 group_t;  // cuda uint4: 4 * uint (64bit, sizeof(uint4)=16 256bit)
-
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
 // score = total_intersection(query,doc) / max(query_size, doc_size)
 // note: query/doc vec must sorted by ASC

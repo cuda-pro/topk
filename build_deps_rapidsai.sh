@@ -11,7 +11,7 @@ RAPIDSAI_DIR=$HOME/rapidsai
 rm -rf ./cudf-23.10.00
 wget https://github.com/rapidsai/cudf/archive/refs/tags/v23.10.00.tar.gz -O cudf.tar.gz
 tar -zxvf cudf.tar.gz
-cd cudf-23.10.00 && INSTALL_PREFIX=$RAPIDSAI_DIR ./build.sh libcudf
+cd cudf-23.10.00 && INSTALL_PREFIX=$RAPIDSAI_DIR ./build.sh libcudf --cmake-args=\"-DBUILD_SHARED_LIBS=OFF\"
 cd -
 
 apt install ninja-build -y

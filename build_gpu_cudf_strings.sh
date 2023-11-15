@@ -11,7 +11,6 @@ nvcc ./src/main.cpp ./src/readfile.cu ./src/topk_doc_cudf_strings.cu -o ./bin/qu
 	-std=c++17 --expt-relaxed-constexpr \
 	-L/usr/local/cuda/lib64 -lcudart -lcuda \
 	-L$RAPIDSAI_DIR/lib -lcudf -I$RAPIDSAI_DIR/include  \
-	-Xlinker="-rpath,$RAPIDSAI_DIR/lib" \
 	-O3 \
 	-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
 	-g

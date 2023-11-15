@@ -13,7 +13,8 @@ RAPIDSAI_DIR ?=
 NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
 NVCCLIB_CUDF ?= -L$(RAPIDSAI_DIR)/lib -lcudf -I$(RAPIDSAI_DIR)/include 
 NVCCLIB_RAFT ?= -L$(RAPIDSAI_DIR)/lib -lraft -I$(RAPIDSAI_DIR)/include 
-NVCCLIB_LINKER ?= -Xlinker="-rpath,$(RAPIDSAI_DIR)/lib"
+NVCCLIB_LINKER ?=
+#NVCCLIB_LINKER ?= -Xlinker="-rpath,$(RAPIDSAI_DIR)/lib"
 
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O3

@@ -1,8 +1,8 @@
-
-#include <chrono>
-
+#include "helper.h"
 #include "topk.h"
-typedef uint4 group_t;  // uint32_t
+
+// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#built-in-vector-types
+typedef uint4 group_t;  // cuda uint4: 4 * uint (32it, sizeof(uint4)=16 128bit)
 
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(const __restrict__ uint16_t* docs,
                                                                  const int* doc_lens, const size_t n_docs,
