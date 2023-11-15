@@ -145,9 +145,9 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
         std::chrono::high_resolution_clock::time_point qt1 = std::chrono::high_resolution_clock::now();
         std::cout << "cudaMemcpy H2D query cost " << std::chrono::duration_cast<std::chrono::milliseconds>(qt1 - qt).count() << " ms " << std::endl;
-
+#ifdef DEBUG
         show_mem_usage();
-
+#endif
         // launch kernel
         int block = N_THREADS_IN_ONE_BLOCK;
         int grid = (n_docs + block - 1) / block;
@@ -172,15 +172,15 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         auto out_extent = raft::make_extents<int64_t>(batch_size, topk);
         auto in_span = raft::make_mdspan<const float, int64_t, raft::row_major, false, true>(d_scores, in_extent);
         // like std:itoa on gpu device global memory
-        rmm::device_uvector<int> d_doc_ids(n_docs, stream);
-        raft::sparse::iota_fill(d_doc_ids.data(), batch_size, int(n_docs), stream);
-        auto in_idx_span = raft::make_mdspan<const int, int64_t, raft::row_major, false, true>(d_doc_ids.data(), in_extent);
+        // rmm::device_uvector<int> d_doc_ids(n_docs, stream);
+        // raft::sparse::iota_fill(d_doc_ids.data(), batch_size, int(n_docs), stream);
+        // auto in_idx_span = raft::make_mdspan<const int, int64_t, raft::row_major, false, true>(d_doc_ids.data(), in_extent);
         auto out_span = raft::make_mdspan<float, int64_t, raft::row_major, false, true>(d_out_scores.data(), out_extent);
         auto out_idx_span = raft::make_mdspan<int, int64_t, raft::row_major, false, true>(d_out_ids.data(), out_extent);
 
         // note: if in_idx_span is null use std::nullopt prevents automatic inference of the template parameters.
-        // raft::matrix::select_k<float, int>(handle, in_span, std::nullopt, out_span, out_idx_span, false, true);
-        raft::matrix::select_k<float, int>(handle, in_span, std::optional(in_idx_span), out_span, out_idx_span, false, true);
+        raft::matrix::select_k<float, int>(handle, in_span, std::nullopt, out_span, out_idx_span, false, true);
+        // raft::matrix::select_k<float, int>(handle, in_span, std::optional(in_idx_span), out_span, out_idx_span, false, true);
 
         std::vector<float> s_scores(d_out_scores.size());
         std::vector<int> s_doc_ids(d_out_ids.size());
