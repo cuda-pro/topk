@@ -1,9 +1,9 @@
 ROOT_DIR=$(cd $(dirname $0); pwd)
 cd $ROOT_DIR
 
-#sh build_deps_rapidsai.sh
 RAPIDSAI_DIR=$HOME/rapidsai
-unzip rapidsai.zip -d $RAPIDSAI_DIR
+#sh build_deps_rapidsai.sh
+#unzip rapidsai.zip -d $RAPIDSAI_DIR
 
 mkdir -p bin
 nvcc ./src/main.cpp ./src/readfile.cu ./src/topk_doc_cudf_strings.cu -o ./bin/query_doc_scoring \
@@ -16,7 +16,8 @@ nvcc ./src/main.cpp ./src/readfile.cu ./src/topk_doc_cudf_strings.cu -o ./bin/qu
 	-g
 
 if [ $? -eq 0 ]; then
-  echo "build success"
+	ldd ./bin/query_doc_scoring
+	echo "build success"
 else
-  echo "build fail"
+	echo "build fail"
 fi
