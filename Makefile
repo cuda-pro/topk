@@ -130,7 +130,10 @@ build_gpu_raft_selectk: init
 		-g
 
 
-build_examples: init build_example_threadpool build_example_readfile_cpu build_example_readfile_gpu build_example_raft_selectk
+
+build_examples: init build_cpu_examples build_cpu_gpu_examples
+build_cpu_examples: init build_example_threadpool build_example_readfile_cpu
+build_cpu_gpu_examples: init build_example_readfile_gpu build_example_raft_selectk build_example_raft_selectk_null_option
 
 build_example_threadpool:
 	$(CXX) -o bin/example_threadpool example_threadpool.cpp \
@@ -157,7 +160,17 @@ build_example_readfile_gpu:
 		-g
 
 build_example_raft_selectk:
-	$(NVCC) -o bin/example_raft_selectk example_raft_selectk.cu -DGPU -DFMT_HEADER_ONLY \
+	$(NVCC) -o bin/example_raft_selectk example_raft_selectk.cu -DFMT_HEADER_ONLY \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_RAFT) \
+		$(NVCCLIB_LINKER) \
+		$(OPTIMIZE_CFLAGS) \
+		-g
+
+build_example_raft_selectk_null_option:
+	$(NVCC) -o bin/example_raft_selectk_null_option example_raft_selectk.cu -DNULL_OPTIONAL -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
 		$(NVCCLIB_CUDA) \

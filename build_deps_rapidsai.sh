@@ -18,7 +18,7 @@ apt install ninja-build -y
 rm -rf ./raft-23.10.00
 wget https://github.com/rapidsai/raft/archive/refs/tags/v23.10.00.tar.gz -O raft.tar.gz
 tar -zxvf raft.tar.gz
-cd raft-23.10.00 && INSTALL_PREFIX=$RAPIDSAI_DIR ./build.sh libraft --compile-lib
+cd raft-23.10.00 && INSTALL_PREFIX=$RAPIDSAI_DIR ./build.sh libraft --compile-static-lib
 cd -
 
 rm -rf ./spdlog-1.11.0
