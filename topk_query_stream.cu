@@ -188,9 +188,7 @@ void doc_query_scoring_gpu_function(
         cudaStreamDestroy(q_streams[i]);
     }
 
-    // deallocation
     cudaFree(d_docs);
-    // cudaFree(d_query);
     cudaFree(d_scores);
     cudaFree(d_doc_lens);
     free(h_docs);

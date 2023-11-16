@@ -1,5 +1,6 @@
 #pragma once
 #include <cuda.h>
+#include <omp.h>
 
 #include <algorithm>
 #include <chrono>

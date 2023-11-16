@@ -9,6 +9,7 @@ mkdir -p bin
 nvcc ./src/main.cpp ./src/topk_raft_selectk.cu -o ./bin/query_doc_scoring \
     -I./src/ \
 	-std=c++17 --expt-relaxed-constexpr --extended-lambda -arch=sm_70 \
+	-Xcompiler="-fopenmp" \
 	-L/usr/local/cuda/lib64 -lcudart -lcuda \
 	-L$RAPIDSAI_DIR/lib -lraft -I$RAPIDSAI_DIR/include \
 	-O3 \

@@ -9,6 +9,7 @@ mkdir -p bin
 nvcc ./src/main.cpp ./src/readfile.cu ./src/topk_doc_cudf_strings.cu -o ./bin/query_doc_scoring \
     -I./src/ \
 	-std=c++17 --expt-relaxed-constexpr \
+	-Xcompiler="-fopenmp" \
 	-L/usr/local/cuda/lib64 -lcudart -lcuda \
 	-L$RAPIDSAI_DIR/lib -lcudf -I$RAPIDSAI_DIR/include  \
 	-O3 \

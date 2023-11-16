@@ -14,6 +14,11 @@
 - https://www.csd.uwo.ca/~mmorenom/HPC-Slides/Many_core_computing_with_CUDA.pdf
 - [Exploring Performance Portability for Accelerators via High-level Parallel Patterns](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=4Ab_NBkAAAAJ&citation_for_view=4Ab_NBkAAAAJ:hqOjcs7Dif8C), [PPT](https://pdfs.semanticscholar.org/b34a/f7c4739d622379fa31a1e88155335061c1b1.pdf)
 
+
+- [Learning to Program GPUs with OpenMP](https://www.youtube.com/watch?v=qEp25Kqjm4o&list=PLLX-Q6B8xqZ8nCxt5mQWZ1cgpAp8a0HPm)
+- https://openmpusers.org/wp-content/uploads/uk-openmp-users-2018-OpenMP45Tutorial_new.pdf
+- https://github.com/UoB-HPC/openmp-tutorial
+
 -
 - https://zhuanlan.zhihu.com/p/52344300
 - 

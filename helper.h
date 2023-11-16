@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <omp.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -222,3 +223,14 @@ static int getThreadNum() {
     return prop.maxThreadsPerBlock;
 }
 #endif
+
+static int g_ncore = omp_get_num_procs();
+
+static int dtn(int n, int min_n) {
+    int max_tn = n / min_n;
+    int tn = max_tn > g_ncore ? g_ncore : max_tn;
+    if (tn < 1) {
+        tn = 1;
+    }
+    return tn;
+}

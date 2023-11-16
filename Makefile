@@ -1,13 +1,14 @@
 CXX ?= g++
 CXXSTD ?= c++11
-CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread
+#CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread -fopenmp
+CXXFLAGS ?= -std=$(CXXSTD) -march=native -pthread -fopenmp
 
 ARCH ?= 70
 ARCH_CODE ?= -arch=sm_${ARCH}
 #ARCH_CODE ?= -gencode arch=compute_${ARCH},code=sm_${ARCH} 
 NVCC ?= nvcc
 NVCCSTD ?= c++11
-NVCCFLAGS ?= -std=$(NVCCSTD) --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
+NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-fopenmp" --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
 #NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
 RAPIDSAI_DIR ?= 
 NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda

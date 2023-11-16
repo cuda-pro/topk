@@ -8,6 +8,7 @@ mkdir -p bin
 nvcc $ROOT_DIR/src/main.cpp $ROOT_DIR/src/topk.cu -o $ROOT_DIR/bin/query_doc_scoring \
     -I$ROOT_DIR/src/ \
 	-std=c++11 --expt-relaxed-constexpr \
+	-fopenmp \
 	-L/usr/local/cuda/lib64 -lcudart -lcuda \
 	-O3 \
 	-DGPU \
