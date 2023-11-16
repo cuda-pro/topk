@@ -102,8 +102,8 @@ detail see: [my_colab_gpu_topk.ipynb](https://github.com/weedge/doraemon-nb/blob
 ## view paper
 1. [Fast Segmented Sort on GPUs.](https://raw.github.com/weedge/learn/main/gpu/Fast%20Segmented%20Sort%20on%20GPUs.pdf)
 2. [Efficient Top-K query processing on massively parallel hardware](https://raw.githubusercontent.com/weedge/learn/main/gpu/Efficient%20Top-K%20Query%20Processing%20on%20Massively%20Parallel%20Hardware.pdf)
-3. [stdgpu: Efficient STL-like Data Structures on the GPU](https://www.researchgate.net/publication/335233070_stdgpu_Efficient_STL-like_Data_Structures_on_the_GPU)
-4. [Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods](https://sc23.supercomputing.org/presentation/?id=pap294&sess=sess156)
+4. [Dr. Top-k: Delegate-Centric Top-k on GPUs](https://github.com/weedge/learn/blob/main/gpu/Dr.%20Top-k-%20Delegate-Centric%20Top-k%20on%20GPUs.pdf)
+5. [**Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods**](https://sc23.supercomputing.org/presentation/?id=pap294&sess=sess156) [paper](https://dl.acm.org/doi/pdf/10.1145/3581784.3607062)
 
 ## view code
 1. https://github.com/rapidsai/cudf/pull/8702 , https://github.com/rapidsai/cudf/blob/branch-23.12/cpp/tests/io/text/multibyte_split_test.cpp
@@ -112,3 +112,4 @@ detail see: [my_colab_gpu_topk.ipynb](https://github.com/weedge/doraemon-nb/blob
 4. https://github.com/heavyai/heavydb/blob/master/QueryEngine/TopKSort.cu
 5. https://github.com/rapidsai/raft/blob/branch-23.12/cpp/include/raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh
 6. https://github.com/rapidsai/raft/blob/branch-23.12/cpp/include/raft/matrix/select_k.cuh , https://github.com/rapidsai/raft/blob/branch-23.12/cpp/test/matrix/select_k.cuh
+7. https://github.com/Anil-Gaihre/DrTopKSC
