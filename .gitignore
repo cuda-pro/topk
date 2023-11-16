@@ -8,3 +8,4 @@ build/
 *.swo
 *~
 .DS_Store
+a.out

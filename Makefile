@@ -32,6 +32,14 @@ all: $(TARGETS)
 init:
 	mkdir -p bin
 
+# https://www.scivision.dev/install-nvidia-hpc-free-compiler/
+install_ubuntu_hpc_compiler:
+	@curl https://developer.download.nvidia.com/hpc-sdk/ubuntu/DEB-GPG-KEY-NVIDIA-HPC-SDK | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg
+	@echo 'deb [signed-by=/usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg] https://developer.download.nvidia.com/hpc-sdk/ubuntu/amd64 /' | sudo tee /etc/apt/sources.list.d/nvhpc.list
+	@sudo apt-get update -y
+	@sudo apt-get install -y nvhpc-22-11
+	@source ./nvidia_hpc_compiler.sh
+
 gen:
 	@bash gen.sh $(DOC_CN)
 	@bash gen_querys.sh $(QUERY_CN)
@@ -224,6 +232,11 @@ get_gpu_baseline:
 	wget "https://bj.bcebos.com/v1/ai-studio-online/9805dd2d2e8e472693efac637628e16b9f9c5be0fe30438bb4a80de3b386781a?responseContentDisposition=attachment%3B%20filename%3DSTI2_1017.zip&authorization=bce-auth-v1%2F5cfe9a5e1454405eb2a975c43eace6ec%2F2023-10-18T12%3A42%3A27Z%2F-1%2F%2F6b5388dcd9013bc9b340bb1806476afa938ce0c65f2f595e1a75f529e90e4187" -O STI2_1017.zip
 	rm -rf STI2 && unzip STI2_1017.zip && mv STI2\ 2 STI2
 
+install_ubuntu_profiler:
+	@wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/nsight-systems-2023.2.3_2023.2.3.1001-1_amd64.deb
+	@sudo apt update
+	@sudo apt install ./nsight-systems-2023.2.3_2023.2.3.1001-1_amd64.deb
+	@sudo apt --fix-broken install
 
 profile_cpu_gpu:
 #nvprof --print-gpu-trace bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
