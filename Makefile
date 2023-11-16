@@ -33,6 +33,7 @@ init:
 	mkdir -p bin
 
 # https://www.scivision.dev/install-nvidia-hpc-free-compiler/
+# https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=3
 install_ubuntu_hpc_compiler:
 	@curl https://developer.download.nvidia.com/hpc-sdk/ubuntu/DEB-GPG-KEY-NVIDIA-HPC-SDK | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg
 	@echo 'deb [signed-by=/usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg] https://developer.download.nvidia.com/hpc-sdk/ubuntu/amd64 /' | sudo tee /etc/apt/sources.list.d/nvhpc.list

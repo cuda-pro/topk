@@ -1,4 +1,5 @@
 # https://www.scivision.dev/install-nvidia-hpc-free-compiler/
+# https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=3
 # hpc-compiler
 
 nvroot=/opt/nvidia/hpc_sdk/Linux_x86_64/2022/

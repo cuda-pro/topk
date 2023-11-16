@@ -5,6 +5,7 @@
 - https://openmpusers.org/wp-content/uploads/uk-openmp-users-2018-OpenMP45Tutorial_new.pdf
 - https://enccs.github.io/openmp-gpu/
 - https://www.openmp.org/resources/openmp-books/
+- https://github.com/UoB-HPC/openmp-tutorial.git
 
 please Think for yourself
 please Think for yourself
@@ -162,7 +163,8 @@ void case5() {
 }
 
 /* Seriel Code */
-static long num_steps = 100000;
+// static long num_steps = 100000;
+static long num_steps = 100000000;
 double step;
 void pi_serial() {
     int i;

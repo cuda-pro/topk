@@ -13,7 +13,7 @@ query[i] == doc[j] (0<=i<query_size, 0<=j<doc_size) calculates an intersection, 
 ./bin/query_doc_scoring <doc_file_name> <query_file_name> <output_filename>
 ```
 
-# optimize
+# optimize (need know some cpu/gpu computer arch; just do it, don't YY, freestyle)
 note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those instances.
 
 0. gpu device RR balance by user request
