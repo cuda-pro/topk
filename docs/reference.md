@@ -21,6 +21,7 @@
 
 -
 - https://zhuanlan.zhihu.com/p/52344300
+- **https://zhuanlan.zhihu.com/p/423992093**
 - 
 - https://passlab.github.io/OpenMPProgrammingBook/cover.html
 - https://www.openmp.org/updates/openmp-accelerator-support-gpus/
