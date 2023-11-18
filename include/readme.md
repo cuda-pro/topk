@@ -1,5 +1,9 @@
 from: https://github.com/ZhangJingrong/gpu_topK_benchmark
 
+test_data: 
+- Normal distribution (gaussian distribution)
+- Uniform distribution
+
 data_t: float, index_t: int
 ```c++
 using topk_func_t = std::function<void(void* buf,
