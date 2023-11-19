@@ -16,6 +16,7 @@ NVCCLIB_CUDF ?= -L$(RAPIDSAI_DIR)/lib -lcudf -I$(RAPIDSAI_DIR)/include
 NVCCLIB_RAFT ?= -L$(RAPIDSAI_DIR)/lib -lraft -I$(RAPIDSAI_DIR)/include 
 NVCCLIB_LINKER ?=
 #NVCCLIB_LINKER ?= -Xlinker="-rpath,$(RAPIDSAI_DIR)/lib"
+NVCC_STREAM_FLAGS ?= --default-stream per-thread
 
 BUILD_TYPE ?= Debug
 OPTIMIZE_CFLAGS?=-O2
@@ -252,8 +253,56 @@ profile_cpu_concurency_gpu:
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu testdata/docs.txt testdata/query testdata/res_gpu.txt
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu_doc_stream testdata/docs.txt testdata/query test
 
+.PHONY: clean
 clean:
 	rm -rf bin/*
 
 clean_testdata:
 	rm -rf testdata/*
+
+
+build_3d_gpu_selection:
+	@cd third_party/gpu_selection && cmake -B build -S . && make -C build
+	@mv build/lib/libgpu_selection.so ../../lib/libgpu_selection.so
+
+# build_3d_faiss
+%.o: %.cu
+	$(NVCC) $(NVCCFLAGS) $(CPPFLAGS) -c $< -o $@
+
+objs := \
+third_party/faiss/gpu/GpuResources.o \
+third_party/faiss/gpu/utils/DeviceUtils.o \
+third_party/faiss/gpu/utils/BlockSelectFloat.o \
+third_party/faiss/gpu/utils/WarpSelectFloat.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloat128.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloat1.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloat256.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloat32.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloat64.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloatF1024.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloatF2048.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloatF512.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloatT1024.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloatT2048.o \
+third_party/faiss/gpu/utils/blockselect/BlockSelectFloatT512.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloat128.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloat1.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloat256.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloat32.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloat64.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloatF1024.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloatF2048.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloatF512.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloatT1024.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloatT2048.o \
+third_party/faiss/gpu/utils/warpselect/WarpSelectFloatT512.o \
+
+
+build_3d_faiss: libfaiss.so 
+	@mv third_party/faiss/libfaiss.so ./lib/	
+
+libfaiss.so: $(objs)
+	$(NVCC) -o $@ $(NVCCFLAGS) -Xcompiler "-fPIC" -Xcompiler "-shared" $^ -lcublas
+
+clean_3d_faiss:
+	-rm $(objs) libfaiss.so

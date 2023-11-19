@@ -4,8 +4,12 @@ archive/
 build/
 .vscode/
 *.dSYM/
+third_party/
 *.swp
 *.swo
 *~
 .DS_Store
 a.out
+*.so.i64
+libfaiss.so
+libgpu_selection.so
