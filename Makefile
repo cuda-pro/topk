@@ -270,7 +270,7 @@ build_3d_gpu_selection:
 
 clean_3d_gpu_selection:
 	@make -C third_party/gpu_selection/build clean
-	@rm lib/libgpu_selection.so
+	@rm -f lib/libgpu_selection.so
 
 
 # make build_3d_faiss NVCCSTD=c++14 CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release
