@@ -1,17 +1,20 @@
 CXX ?= g++
 CXXSTD ?= c++11
+CXXFLAGS ?= -std=$(CXXSTD) -march=native
 #CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread -fopenmp
-CXXFLAGS ?= -std=$(CXXSTD) -march=native -pthread -fopenmp
+#CXXFLAGS ?= -std=$(CXXSTD) -march=native -pthread -fopenmp
 
 ARCH ?= 70
 ARCH_CODE ?= -arch=sm_${ARCH}
 #ARCH_CODE ?= -gencode arch=compute_${ARCH},code=sm_${ARCH} 
-NVCC ?= nvcc
+CUDA_PATH ?= /usr/local/cuda
+NVCC ?=$(CUDA_PATH)/bin/nvcc
 NVCCSTD ?= c++11
-NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-fopenmp" --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
+NVCCFLAGS ?= -std=$(NVCCSTD) --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
+#NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-fopenmp" --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
 #NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
 RAPIDSAI_DIR ?= 
-NVCCLIB_CUDA ?= -L/usr/local/cuda/lib64 -lcudart -lcuda
+NVCCLIB_CUDA ?= -L$(CUDA_PATH)/lib64 -lcudart -lcuda
 NVCCLIB_CUDF ?= -L$(RAPIDSAI_DIR)/lib -lcudf -I$(RAPIDSAI_DIR)/include 
 NVCCLIB_RAFT ?= -L$(RAPIDSAI_DIR)/lib -lraft -I$(RAPIDSAI_DIR)/include 
 NVCCLIB_LINKER ?=
@@ -262,15 +265,22 @@ clean_testdata:
 
 
 build_3d_gpu_selection:
-	@cd third_party/gpu_selection && cmake -B build -S . && make -C build
-	@mv build/lib/libgpu_selection.so ../../lib/libgpu_selection.so
+	@cd third_party/gpu_selection && cmake -B build -S . && make -C build && cd -
+	@mv third_party/gpu_selection/build/lib/libgpu_selection.so lib/libgpu_selection.so
 
-# build_3d_faiss
+clean_3d_gpu_selection:
+	@make -C third_party/gpu_selection/build clean
+	@rm lib/libgpu_selection.so
+
+
+# make build_3d_faiss NVCCSTD=c++14 CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release
+CXXFLAGS += -fPIC 
+NVCCFLAGS += -Xcompiler "-fPIC"
+CPPFLAGS = $(OPTIMIZE_CFLAGS) -g -I./third_party/ -I$(CUDA_PATH)/include
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) $(CPPFLAGS) -c $< -o $@
 
-objs := \
-third_party/faiss/gpu/GpuResources.o \
+faiss_gpu_objs := third_party/faiss/gpu/GpuResources.o \
 third_party/faiss/gpu/utils/DeviceUtils.o \
 third_party/faiss/gpu/utils/BlockSelectFloat.o \
 third_party/faiss/gpu/utils/WarpSelectFloat.o \
@@ -297,12 +307,12 @@ third_party/faiss/gpu/utils/warpselect/WarpSelectFloatT1024.o \
 third_party/faiss/gpu/utils/warpselect/WarpSelectFloatT2048.o \
 third_party/faiss/gpu/utils/warpselect/WarpSelectFloatT512.o \
 
+libfaiss.so: $(faiss_gpu_objs)
+	$(NVCC) -o $@ $(NVCCFLAGS) $(OPTIMIZE_CFLAGS) -g \
+    -Xcompiler "-fPIC" -Xcompiler "-shared" $^ -lcublas
 
 build_3d_faiss: libfaiss.so 
-	@mv third_party/faiss/libfaiss.so ./lib/	
-
-libfaiss.so: $(objs)
-	$(NVCC) -o $@ $(NVCCFLAGS) -Xcompiler "-fPIC" -Xcompiler "-shared" $^ -lcublas
+	@mv third_party/faiss/libfaiss.so ./lib/
 
 clean_3d_faiss:
-	-rm $(objs) libfaiss.so
+	@rm -f $(faiss_gpu_objs) lib/libfaiss.so
