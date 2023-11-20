@@ -9,6 +9,7 @@
 #include "cub_topk.cuh"
 #include "drtopk_bitonic.cuh"
 #include "drtopk_radix.cuh"
+#include "faiss_topk.cuh"
 #include "grid_select.h"
 #include "nv_util.h"
 #include "sample_select_topk.cuh"

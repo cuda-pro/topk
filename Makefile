@@ -87,7 +87,7 @@ build_cpu_gpu_query_stream: init
 	$(NVCC) ./main.cpp ./topk_query_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_query_stream  \
 		-I./ \
 		$(NVCCLIB_CUDA) \
-		$(NVCCFLAGS) \
+		$(NVCCFLAGS) --default-stream per-thread \
 		$(OPTIMIZE_CFLAGS) \
 		-DGPU \
 		-g
@@ -97,7 +97,7 @@ build_cpu_gpu_doc_stream: init
 		-I./ \
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
-		$(OPTIMIZE_CFLAGS) \
+		$(OPTIMIZE_CFLAGS) --default-stream per-thread \
 		-DGPU \
 		-g
 
@@ -312,7 +312,7 @@ libfaiss.so: $(faiss_gpu_objs)
     -Xcompiler "-fPIC" -Xcompiler "-shared" $^ -lcublas
 
 build_3d_faiss: libfaiss.so 
-	@mv third_party/faiss/libfaiss.so ./lib/
+	@mv ./libfaiss.so ./lib/
 
 clean_3d_faiss:
 	@rm -f $(faiss_gpu_objs) lib/libfaiss.so

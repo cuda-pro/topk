@@ -113,7 +113,7 @@ static std::vector<std::string> getFilesInDirectory(const std::string& directory
 }
 
 static void print1d_uint16(uint16_t* data, size_t col_cn) {
-    for (int i = 0; i < col_cn; i++) {
+    for (size_t i = 0; i < col_cn; i++) {
         printf("%d ", data[i]);
         // printf("%d,", *(data+ i));
     }
@@ -121,8 +121,8 @@ static void print1d_uint16(uint16_t* data, size_t col_cn) {
 }
 
 static void print2d_uint16(uint16_t* data, size_t row_cn, size_t col_cn) {
-    for (int i = 0; i < row_cn; i++) {
-        for (int j = 0; j < col_cn; j++) {
+    for (size_t i = 0; i < row_cn; i++) {
+        for (size_t j = 0; j < col_cn; j++) {
             // data[i][j];
             printf("%d,", *(data + i * col_cn + j));
         }

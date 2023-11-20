@@ -1,18 +1,19 @@
 #!/bin/sh
-set -e
 
 ROOT_DIR=$(cd $(dirname $0); pwd)
 cd $ROOT_DIR
 
+rm -rf third_party
 mkdir -p third_party 
 cd third_party
 
 # faiss block select topk source code
-wget https://github.com/facebookresearch/faiss/archive/refs/tags/v1.7.4.zip -O faiss-1.7.4.zip
-unzip faiss-1.7.4.zip
-mv faiss-1.7.4/faiss ./
-rm -r faiss-1.7.4
-rm faiss-1.7.4.zip
+faiss_version=1.7.3
+wget https://github.com/facebookresearch/faiss/archive/refs/tags/v${faiss_version}.zip -O faiss-${faiss_version}.zip
+unzip faiss-${faiss_version}.zip
+mv faiss-${faiss_version}/faiss ./
+rm -r faiss-${faiss_version}
+rm faiss-${faiss_version}.zip
 
 # bucket-based select topk source code
 # fork from https://github.com/upsj/gpu_selection.git 
@@ -23,3 +24,6 @@ git clone https://github.com/weedge/gpu_selection.git
 # fork from https://github.com/Anil-Gaihre/DrTopKSC.git
 # change radix/bitonic select
 git clone https://github.com/weedge/DrTopKSC.git
+
+
+echo "third party download success" > done.txt
