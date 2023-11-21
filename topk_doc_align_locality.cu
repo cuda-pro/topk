@@ -2,11 +2,10 @@
 #include "topk.h"
 
 // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#built-in-vector-types
-typedef uint4 group_t;  // cuda uint4: 4 * uint (32it, sizeof(uint4)=16 128bit)
+typedef uint4 group_t;  // cuda uint4: 4 * uint (sizeof(uint4)=16 128bit)
 
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
 // score = total_intersection(query,doc) / max(query_size, doc_size)
-// note: query/doc vec must sorted by ASC
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     const __restrict__ uint16_t *docs,
     const int *doc_lens, const size_t n_docs,
@@ -122,18 +121,24 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     // pre align docs -> h_docs [n_docs,MAX_DOC_SIZE], h_doc_lens_vec[n_docs] global memmory segment -> register
     std::chrono::high_resolution_clock::time_point dgt = std::chrono::high_resolution_clock::now();
     {
+        std::chrono::high_resolution_clock::time_point pt = std::chrono::high_resolution_clock::now();
         cudaStream_t stream;
-        TOPK_CUDA_CHECK(cudaStreamCreate(&stream));
+        cudaStreamCreate(&stream);
 
+        uint16_t *h_docs = new uint16_t[n_docs * MAX_DOC_SIZE];
         std::vector<int> h_doc_lens_vec(n_docs);
         std::vector<int> h_doc_offsets_vec(n_docs);
         size_t offset = 0;
         for (int i = 0; i < docs.size(); i++) {
             h_doc_lens_vec[i] = docs[i].size();
             h_doc_offsets_vec[i] = offset;
-            cudaMemcpyAsync(d_in_docs + offset, docs[i].data(), sizeof(int) * h_doc_lens_vec[i], cudaMemcpyHostToDevice, stream);
+            memcpy(h_docs + offset, docs[i].data(), sizeof(uint16_t) * h_doc_lens_vec[i]);
             offset += h_doc_lens_vec[i];
         }
+        cudaMemcpyAsync(d_in_docs, h_docs, sizeof(uint16_t) * offset, cudaMemcpyHostToDevice, stream);
+        delete[] h_docs;
+        std::chrono::high_resolution_clock::time_point pt1 = std::chrono::high_resolution_clock::now();
+        std::cout << "int offset cost " << std::chrono::duration_cast<std::chrono::milliseconds>(pt1 - pt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
         cudaMemcpyAsync(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);

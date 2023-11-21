@@ -3,7 +3,6 @@
 
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
 // score = total_intersection(query,doc) / max(query_size, doc_size)
-// note: query/doc vec must sorted by ASC
 void __global__ docQueryScoringCoalescedMemoryAccessKernel(
     cudf::column_device_view const d_docs, const size_t n_docs,
     uint16_t *query, const int query_len, float *scores) {

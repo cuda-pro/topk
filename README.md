@@ -64,6 +64,15 @@ increase **cpu context switch cost**
 
 ---
 
+## cpu_readfile -> vec docs -> gpu_cpu_topk + align_locality
+(done)
+
+---
+
+## cpu_readfile -> vec docs -> gpu_cpu_topk + (use auto adpter select k -> sort -> top k. gpu accelerate)
+(done)
+
+---
 
 ## gpu_readfile -> vec docs -> gpu_cpu_topk
 
@@ -80,18 +89,8 @@ increase **cpu context switch cost**
 
 ---
 
-##  query hashtable + doc hashtable score
-(todo)
-
----
-
 ## (gpu_readfile -> gpu_chunk_topk -> gpu_cpu_topk) + stream pool + rmm 
 (todo)
-
----
-
-## use auto adpter select k -> sort -> top k. gpu accelerate
- (todo)
 
 ---
 

@@ -1,5 +1,5 @@
-#include <stdint.h>
 #include <raft/sparse/detail/utils.h>
+#include <stdint.h>
 
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -12,11 +12,10 @@
 #include "topk.h"
 
 // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#built-in-vector-types
-typedef uint4 group_t;  // cuda uint4: 4 * uint (32it, sizeof(uint4)=16 128bit)
+typedef uint4 group_t;  // cuda uint4: 4 * uint (sizeof(uint4)=16 128bit)
 
 // intersection(query,doc): query[i] == doc[j](0 <= i < query_size, 0 <= j < doc_size)
 // score = total_intersection(query,doc) / max(query_size, doc_size)
-// note: query/doc vec must sorted by ASC
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
     const __restrict__ uint16_t *docs,
     const int *doc_lens, const size_t n_docs,
@@ -217,5 +216,5 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     cudaFree(d_docs);
     cudaFree(d_scores);
     cudaFree(d_doc_lens);
-    free(h_docs);
+    delete[] h_docs;
 }

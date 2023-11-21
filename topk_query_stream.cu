@@ -2,7 +2,7 @@
 #include "topk.h"
 
 // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#built-in-vector-types
-typedef uint4 group_t;  // cuda uint4: 4 * uint (32it, sizeof(uint4)=16 128bit)
+typedef uint4 group_t;  // cuda uint4: 4 * uint (sizeof(uint4)=16 128bit)
 
 void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(const __restrict__ uint16_t* docs,
                                                                  const int* doc_lens, const size_t n_docs,
@@ -191,7 +191,7 @@ void doc_query_scoring_gpu_function(
     cudaFree(d_docs);
     cudaFree(d_scores);
     cudaFree(d_doc_lens);
-    free(h_docs);
+    delete[] h_docs;
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
