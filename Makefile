@@ -9,8 +9,8 @@ ARCH_CODE ?= -arch=sm_${ARCH} -gencode=arch=compute_${ARCH},code=sm_${ARCH}
 CUDA_PATH ?= /usr/local/cuda
 NVCC ?=$(CUDA_PATH)/bin/nvcc
 NVCCSTD ?= c++11
-NVCCFLAGS ?= -std=$(NVCCSTD) --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
-#NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-fopenmp" --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
+#NVCCFLAGS ?= -std=$(NVCCSTD) --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE) 
+NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-fopenmp" --expt-relaxed-constexpr --extended-lambda $(ARCH_CODE)
 #NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-Wall -Wextra" --expt-relaxed-constexpr $(ARCH_CODE)
 RAPIDSAI_DIR ?= 
 NVCCLIB_CUDA ?= -L$(CUDA_PATH)/lib64 -lcudart -lcuda
@@ -102,6 +102,15 @@ build_cpu_gpu_doc_stream: init
 
 build_cpu_gpu_hashtable: init
 	$(NVCC) ./main.cpp ./topk_hashtable.cu -o ./bin/query_doc_scoring_cpu_gpu_hashtable \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
+		-g
+
+build_cpu_gpu_align_locality: init
+	$(NVCC) ./main.cpp ./topk_doc_align_locality.cu -o ./bin/query_doc_scoring_align_locality \
 		-I./ \
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
