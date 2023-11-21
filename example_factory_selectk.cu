@@ -29,6 +29,12 @@ int selectk_factory(int topk, int batch_size, int len,
     Factory<float, int>::topk_func_t topk_func = factory.create(algo);
     if (topk_func == nullptr) {
         std::cout << "selectk_factory error: unknown algo " << algo << std::endl;
+        auto algo_names = factory.algo_names();
+        std::cout << "support algo:" << std::endl;
+        for (auto name : algo_names) {
+            std::cout << name << "\t";
+        }
+        std::cout << std::endl;
         return -1;
     }
 
