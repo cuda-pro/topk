@@ -5,8 +5,7 @@ CXXFLAGS ?= -std=$(CXXSTD) -march=native
 #CXXFLAGS ?= -std=$(CXXSTD) -march=native -pthread -fopenmp
 
 ARCH ?= 70
-ARCH_CODE ?= -arch=sm_${ARCH}
-#ARCH_CODE ?= -gencode arch=compute_${ARCH},code=sm_${ARCH} 
+ARCH_CODE ?= -arch=sm_${ARCH} -gencode=arch=compute_${ARCH},code=sm_${ARCH} 
 CUDA_PATH ?= /usr/local/cuda
 NVCC ?=$(CUDA_PATH)/bin/nvcc
 NVCCSTD ?= c++11
@@ -265,7 +264,7 @@ clean_testdata:
 
 
 build_3d_gpu_selection:
-	@cd third_party/gpu_selection && cmake -B build -S . && make -C build && cd -
+	@cd third_party/gpu_selection && cmake -DCMAKE_CUDA_FLAGS="$(ARCH_CODE) -rdc=true --maxrregcount 64" -B build -S . && make -C build && cd -
 	@mv third_party/gpu_selection/build/lib/libgpu_selection.so lib/libgpu_selection.so
 
 clean_3d_gpu_selection:
