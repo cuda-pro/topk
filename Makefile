@@ -264,12 +264,12 @@ clean_testdata:
 
 
 build_3d_gpu_selection:
-	@cd third_party/gpu_selection && cmake -DCMAKE_CUDA_FLAGS="$(ARCH_CODE) -rdc=true --maxrregcount 64" -B build -S . && make -C build && cd -
+	@cd third_party/gpu_selection && cmake -DTARGET_ARCH=$(ARCH) -B build -S . && make -C build && cd -
 	@mv third_party/gpu_selection/build/lib/libgpu_selection.so lib/libgpu_selection.so
 
 clean_3d_gpu_selection:
-	@make -C third_party/gpu_selection/build clean
 	@rm -f lib/libgpu_selection.so
+	@rm -rf third_party/gpu_selection/build
 
 
 # make build_3d_faiss NVCCSTD=c++14 CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release
