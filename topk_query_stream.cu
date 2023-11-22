@@ -56,25 +56,67 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(const __restric
     }
 }
 
-void doc_query_scoring_gpu_function(
-    std::vector<std::vector<uint16_t>>& querys,
-    std::vector<std::vector<uint16_t>>& docs,
-    std::vector<uint16_t>& lens,
-    std::vector<std::vector<int>>& indices  // shape [querys.size(), TOPK]
+/*
+Note:
+The host is automatically asynchronous with kernel launches
+ Use streams to control asynchronous behavior
+— Ordered within a stream (FIFO)
+— Unordered with other streams
+— Default stream is synchronous with all streams.
+
+ Memory copies can execute concurrently if (and only if)
+— The memory copy is in a different non-default stream
+— The copy uses pinned memory on the host
+— The asynchronous API is called
+— There is not another memory copy occurring in the same direction at
+the same time.
+*/
+void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
+                           int start_doc_id,
+                           std::vector<std::vector<uint16_t>>& docs,
+                           std::vector<uint16_t>& lens,
+                           std::vector<std::vector<int>>& indices,  // shape [querys.size(), TOPK]
+                           std::vector<std::vector<float>>& scores  // shape [querys.size(), TOPK]
 ) {
+    // device
+    cudaDeviceProp device_props;
+    cudaGetDeviceProperties(&device_props, 0);
+    cudaSetDevice(0);
+    // check deviceOverlap
+    if (!device_props.deviceOverlap) {
+        printf("device don't support deviceOverlap,so can't speed up the process from streams\n");
+        return;
+    }
+
     auto n_docs = docs.size();
     auto n_querys = querys.size();
     std::vector<int> s_indices(n_docs);
+    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
+    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
+    // #pragma omp parallel for schedule(static)
+    for (int j = 0; j < n_docs; ++j) {
+        s_indices[j] = j;
+    }
+    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
+    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
+
+    int block = N_THREADS_IN_ONE_BLOCK;
+    int grid = (n_docs + block - 1) / block;
 
     float* d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_query = nullptr;
     int* d_doc_lens = nullptr;
 
     // copy to device
+    std::chrono::high_resolution_clock::time_point dat = std::chrono::high_resolution_clock::now();
     cudaMalloc(&d_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
     cudaMalloc(&d_scores, sizeof(float) * n_docs);
     cudaMalloc(&d_doc_lens, sizeof(int) * n_docs);
+    std::chrono::high_resolution_clock::time_point dat1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaMalloc docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dat1 - dat).count() << " ms " << std::endl;
 
+    // pre align docs -> h_docs [n_docs,MAX_DOC_SIZE], h_doc_lens_vec[n_docs]
+    std::chrono::high_resolution_clock::time_point dgt = std::chrono::high_resolution_clock::now();
     uint16_t* h_docs = new uint16_t[MAX_DOC_SIZE * n_docs];
     memset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
     std::vector<int> h_doc_lens_vec(n_docs);
@@ -86,65 +128,56 @@ void doc_query_scoring_gpu_function(
             auto layer_1_offset = i;
             auto layer_1_stride = group_sz;
             auto layer_2_offset = j % group_sz;
-            auto final_offset =
-                layer_0_offset * layer_0_stride + layer_1_offset * layer_1_stride + layer_2_offset;
+            auto final_offset = layer_0_offset * layer_0_stride + layer_1_offset * layer_1_stride + layer_2_offset;
             h_docs[final_offset] = docs[i][j];
         }
         h_doc_lens_vec[i] = docs[i].size();
     }
+    std::chrono::high_resolution_clock::time_point dgt1 = std::chrono::high_resolution_clock::now();
+    std::cout << "align group docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dgt1 - dgt).count() << " ms " << std::endl;
 
+    std::chrono::high_resolution_clock::time_point dt = std::chrono::high_resolution_clock::now();
     cudaMemcpy(d_docs, h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+    std::chrono::high_resolution_clock::time_point dt1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaMemcpy H2D docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dt1 - dt).count() << " ms " << std::endl;
 
-    // device
-    cudaDeviceProp device_props;
-    cudaGetDeviceProperties(&device_props, 0);
-    cudaSetDevice(0);
+    std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
+    cudaMemcpy(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+    std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaMemcpy H2D doc_lens cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dlt1 - dlt).count() << " ms " << std::endl;
 
     // query documents scores
     std::vector<std::vector<float>> q_scores(n_querys);
-
     // query stream
     cudaStream_t* q_streams = (cudaStream_t*)malloc(n_querys * sizeof(cudaStream_t));
-
     for (int i = 0; i < n_querys; i++) {
-        cudaStreamCreate(&q_streams[i]);
+        cudaStreamCreateWithFlags(&q_streams[i], cudaStreamNonBlocking);
     }
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-    cudaEventRecord(start);
+    cudaEventRecord(start, 0);
     int stream_id = 0;
     for (auto& query : querys) {
         const size_t query_len = query.size();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
-        cudaMemcpyAsync(d_query,
-                        query.data(),
-                        sizeof(uint16_t) * query_len,
-                        cudaMemcpyHostToDevice,
-                        q_streams[stream_id]);
-
+        cudaMemcpyAsync(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice, q_streams[stream_id]);
         // launch kernel
-        int block = N_THREADS_IN_ONE_BLOCK;
-        int grid = (n_docs + block - 1) / block;
         docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block, 0, q_streams[stream_id]>>>(
             d_docs, d_doc_lens, n_docs, d_query, query_len, d_scores);
         std::vector<float> s_scores(n_docs);
-        cudaMemcpyAsync(s_scores.data(),
-                        d_scores,
-                        sizeof(float) * n_docs,
-                        cudaMemcpyDeviceToHost,
-                        q_streams[stream_id]);
-        cudaStreamSynchronize(q_streams[stream_id]);
+        cudaMemcpyAsync(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost, q_streams[stream_id]);
         q_scores[stream_id] = s_scores;
-        std::cout << "stream_id:  " << stream_id << " scores size:" << q_scores[stream_id].size()
-                  << std::endl;
+        std::cout << "stream_id:  " << stream_id << " scores size:" << q_scores[stream_id].size() << std::endl;
 
         stream_id++;
         cudaFree(d_query);
     }
-    cudaEventRecord(stop);
+    for (int i = 0; i < n_querys; i++) {
+        cudaStreamSynchronize(q_streams[i]);
+    }
+    cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     float elapsed_time;
     cudaEventElapsedTime(&elapsed_time, start, stop);
@@ -152,11 +185,6 @@ void doc_query_scoring_gpu_function(
 
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < n_querys; i++) {
-        // init indices
-        for (int j = 0; j < n_docs; ++j) {
-            s_indices[j] = j;
-        }
-
         auto scores = q_scores[i];
         std::cout << "scores size:" << scores.size() << std::endl;
         int topk = scores.size() > TOPK ? TOPK : scores.size();
@@ -183,11 +211,6 @@ void doc_query_scoring_gpu_function(
     std::cout << "total partial_sort cost "
               << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t).count() << " ms "
               << std::endl;
-
-    for (int i = 0; i < n_querys; i++) {
-        cudaStreamDestroy(q_streams[i]);
-    }
-
     cudaFree(d_docs);
     cudaFree(d_scores);
     cudaFree(d_doc_lens);
@@ -195,5 +218,8 @@ void doc_query_scoring_gpu_function(
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
+    for (int i = 0; i < n_querys; i++) {
+        cudaStreamDestroy(q_streams[i]);
+    }
     free(q_streams);
 }

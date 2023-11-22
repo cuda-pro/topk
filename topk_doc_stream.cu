@@ -62,9 +62,27 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            std::vector<std::vector<int>> &indices,  // shape [querys.size(), TOPK]
                            std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
 ) {
+    // device
+    cudaDeviceProp device_props;
+    cudaGetDeviceProperties(&device_props, 0);
+    cudaSetDevice(0);
+    // check deviceOverlap
+    if (!device_props.deviceOverlap) {
+        printf("device don't support deviceOverlap,so can't speed up the process from streams\n");
+        return;
+    }
+
     auto n_docs = docs.size();
     std::vector<float> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
+    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
+    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
+    // #pragma omp parallel for schedule(static)
+    for (int j = 0; j < n_docs; ++j) {
+        s_indices[j] = j + start_doc_id;
+    }
+    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
+    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
 
     float *d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_query = nullptr;
@@ -92,17 +110,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         h_doc_lens_vec[i] = docs[i].size();
     }
 
-    // device, todo: rr workload by user query (userId)
-    cudaDeviceProp device_props;
-    cudaGetDeviceProperties(&device_props, 0);
-    cudaSetDevice(0);
-
     for (auto &query : querys) {
-        // init indices
-        for (int i = 0; i < n_docs; ++i) {
-            s_indices[i] = i + start_doc_id;
-        }
-
         // doc stream
         const int N_STREAM = 8;
         cudaStream_t doc_streams[N_STREAM];

@@ -54,6 +54,18 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     auto n_docs = docs.size();
     std::vector<float> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
+    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
+    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
+    // #pragma omp parallel for schedule(static)
+    for (int j = 0; j < n_docs; ++j) {
+        s_indices[j] = j + start_doc_id;
+    }
+    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
+    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
+
+    // launch kernel
+    int block = N_THREADS_IN_ONE_BLOCK;
+    int grid = (n_docs + block - 1) / block;
 
     float *d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_query = nullptr;
@@ -104,11 +116,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     cudaSetDevice(0);
 
     for (auto &query : querys) {
-        // init indices
-        for (int i = 0; i < n_docs; ++i) {
-            s_indices[i] = i + start_doc_id;
-        }
-
         const size_t query_len = query.size();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
         std::chrono::high_resolution_clock::time_point qt = std::chrono::high_resolution_clock::now();
@@ -121,10 +128,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         q_ht.insert_unique_cn_many(d_query, query_len);
 
         show_mem_usage();
-
-        // launch kernel
-        int block = N_THREADS_IN_ONE_BLOCK;
-        int grid = (n_docs + block - 1) / block;
 
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
