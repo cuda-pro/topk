@@ -118,6 +118,15 @@ build_cpu_gpu_align_locality: init
 		-DGPU \
 		-g
 
+build_cpu_gpu_pinned_memory: init
+	$(NVCC) ./main.cpp ./topk_pinned_memory.cu -o ./bin/query_doc_scoring_pinned_memory \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) \
+		-DGPU \
+		-g
+
 build_cpu_gpu_readfile: init
 	$(NVCC) ./main.cpp ./readfile.cu ./topk.cu -o ./bin/query_doc_scoring_cpu_gpu_readfile \
 		-I./ \

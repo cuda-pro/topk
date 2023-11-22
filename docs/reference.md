@@ -3,6 +3,7 @@
 - https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
 - https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html
 - https://docs.nvidia.com/cuda/cuda-runtime-api/index.html
+- **[cuda_by_example](https://github.com/weedge/learn/blob/main/gpu/cuda_by_example.book.pdf)**  [cn](https://hpc.pku.edu.cn/docs/20170829223652566150.pdf)
 - https://docs.nvidia.com/cuda/thrust/index.html
 - https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
 - https://nvlabs.github.io/cub/index.html
@@ -16,6 +17,7 @@
 - [Exploring Performance Portability for Accelerators via High-level Parallel Patterns](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=4Ab_NBkAAAAJ&citation_for_view=4Ab_NBkAAAAJ:hqOjcs7Dif8C), [PPT](https://pdfs.semanticscholar.org/b34a/f7c4739d622379fa31a1e88155335061c1b1.pdf)
 
 
+- 
 - [Learning to Program GPUs with OpenMP](https://www.youtube.com/watch?v=qEp25Kqjm4o&list=PLLX-Q6B8xqZ8nCxt5mQWZ1cgpAp8a0HPm)
 - https://openmpusers.org/wp-content/uploads/uk-openmp-users-2018-OpenMP45Tutorial_new.pdf
 - https://github.com/UoB-HPC/openmp-tutorial
