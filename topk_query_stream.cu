@@ -175,7 +175,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
         // todo: use cudaMallocHost to allocate pinned memory
         std::vector<float> s_scores(n_docs);
         cudaMemcpyAsync(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost, q_streams[stream_id]);
-        q_scores[stream_id] = s_scores;
+        q_scores[stream_id] = std::move(s_scores);
         std::cout << "stream_id:  " << stream_id << " scores size:" << q_scores[stream_id].size() << std::endl;
 
         stream_id++;

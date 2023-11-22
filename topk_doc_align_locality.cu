@@ -91,6 +91,21 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            std::vector<std::vector<int>> &indices,  // shape [querys.size(), TOPK]
                            std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
 ) {
+    // use one gpu device
+    cudaDeviceProp device_props;
+    cudaGetDeviceProperties(&device_props, 0);
+    cudaSetDevice(0);
+
+#ifdef MAP_HOST_MEMORY
+    // check deviceOverlap
+    if (device_props.canMapHostMemory != 1) {
+        printf("device don't support MapHostMemory,so can't zero copy\n");
+    } else {
+        printf("device support MapHostMemory,so can zero-copy\n");
+        cudaSetDeviceFlags(cudaDeviceMapHost);
+    }
+#endif
+
     auto n_docs = docs.size();
     std::vector<float> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
@@ -106,11 +121,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     // launch kernel grid block size, just use 1D x
     int block = N_THREADS_IN_ONE_BLOCK;
     int grid = (n_docs + block - 1) / block;
-
-    // use one gpu device
-    cudaDeviceProp device_props;
-    cudaGetDeviceProperties(&device_props, 0);
-    cudaSetDevice(0);
 
     float *d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_in_docs = nullptr, *d_query = nullptr;
@@ -144,7 +154,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
             offset += h_doc_lens_vec[i];
         }
         cudaMemcpyAsync(d_in_docs, h_docs, sizeof(uint16_t) * offset, cudaMemcpyHostToDevice, stream);
-        delete[] h_docs;
         std::chrono::high_resolution_clock::time_point pt1 = std::chrono::high_resolution_clock::now();
         std::cout << "int offset cost " << std::chrono::duration_cast<std::chrono::milliseconds>(pt1 - pt).count() << " ms " << std::endl;
 
@@ -158,9 +167,12 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         // cudaLaunchKernel
         docsAlignKernel<<<grid, block, 0, stream>>>(d_in_docs, d_doc_lens, d_doc_offsets, n_docs, d_docs);
         cudaStreamSynchronize(stream);
+
+        delete[] h_docs;
         cudaFree(d_in_docs);
         cudaFree(d_doc_offsets);
         cudaStreamDestroy(stream);
+
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docsAlignKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
     }

@@ -24,7 +24,7 @@ note: just optimize stand-alone, for dist m/r(fan-out/in) arch to schedule those
 5. SIMD: for cpu arch instruction set (intel cpu sse,avx2,avx512 etc..)
 6. sequential IO stream pipeline: for r query/docs file, (batch per thread, multibyte_split parallel Accelerators) , w res file
 7. resources pool
-8. locality , Coalesced memory accesses
+8. move/zero-copy async, locality , Coalesced memory accesses 
 
 # result
 add read file chunk topk on gpu, run on google colab A100

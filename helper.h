@@ -200,6 +200,7 @@ static void apply_permutation(std::vector<KeyT>& vec, const std::vector<IdxT>& p
 
 #ifdef __CUDACC__
 static int show_mem_usage() {
+#ifdef DEBUG
     // show memory usage of GPU
     size_t free_byte;
     size_t total_byte;
@@ -207,6 +208,7 @@ static int show_mem_usage() {
     size_t used_byte = total_byte - free_byte;
     printf("GPU memory usage: used = %4.2lf MB, free = %4.2lf MB, total = %4.2lf MB\n",
            used_byte / 1024.0 / 1024.0, free_byte / 1024.0 / 1024.0, total_byte / 1024.0 / 1024.0);
+#endif
     return cudaSuccess;
 }
 
