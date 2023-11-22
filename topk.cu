@@ -80,6 +80,10 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
     std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
 
+    // launch kernel
+    int block = N_THREADS_IN_ONE_BLOCK;
+    int grid = (n_docs + block - 1) / block;
+
     float *d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_query = nullptr;
     int *d_doc_lens = nullptr;
@@ -129,7 +133,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     cudaSetDevice(0);
 
     for (auto &query : querys) {
-        // init indices
+        std::chrono::high_resolution_clock::time_point lt = std::chrono::high_resolution_clock::now();
         const size_t query_len = query.size();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
         std::chrono::high_resolution_clock::time_point qt = std::chrono::high_resolution_clock::now();
@@ -138,10 +142,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         std::cout << "cudaMemcpy H2D query cost " << std::chrono::duration_cast<std::chrono::milliseconds>(qt1 - qt).count() << " ms " << std::endl;
 
         show_mem_usage();
-
-        // launch kernel
-        int block = N_THREADS_IN_ONE_BLOCK;
-        int grid = (n_docs + block - 1) / block;
 
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
@@ -176,6 +176,10 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         scores.emplace_back(topk_scores);
 
         cudaFree(d_query);
+        std::chrono::high_resolution_clock::time_point lt1 = std::chrono::high_resolution_clock::now();
+        std::cout << "one query x docs topk cost "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(lt1 - lt).count() << " ms "
+                  << std::endl;
     }
 
     cudaFree(d_docs);

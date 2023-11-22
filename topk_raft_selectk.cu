@@ -79,7 +79,17 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            std::vector<std::vector<float>> &scores  // shape [querys.size(), TOPK]
 ) {
     auto n_docs = docs.size();
-    // std::vector<int> s_indices(n_docs);
+    /*
+    std::vector<int> s_indices(n_docs);
+    // init indices on host memory heap
+    for (int i = 0; i < n_docs; ++i) {
+        s_indices[i] = i + start_doc_id;
+    }
+    */
+
+    // launch kernel
+    int block = N_THREADS_IN_ONE_BLOCK;
+    int grid = (n_docs + block - 1) / block;
 
     float *d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_query = nullptr;
@@ -131,13 +141,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     cudaSetDevice(0);
 
     for (auto &query : querys) {
-        /*
-        // init indices on host memory heap
-        for (int i = 0; i < n_docs; ++i) {
-            s_indices[i] = i + start_doc_id;
-        }
-        */
-
         const size_t query_len = query.size();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
         std::chrono::high_resolution_clock::time_point qt = std::chrono::high_resolution_clock::now();
@@ -147,10 +150,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 #ifdef DEBUG
         show_mem_usage();
 #endif
-        // launch kernel
-        int block = N_THREADS_IN_ONE_BLOCK;
-        int grid = (n_docs + block - 1) / block;
-
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
         docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block>>>(d_docs,

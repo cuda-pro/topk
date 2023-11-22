@@ -109,7 +109,10 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     // cudaMallocHost(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);  // cudaHostAllocDefault
     cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
     cudaMemset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
-    std::vector<int> h_doc_lens_vec(n_docs);
+    int *h_doc_lens_vec = nullptr;
+    cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+    // cudaMemset(h_doc_lens, 0, sizeof(int) * n_docs);
+    // std::vector<int> h_doc_lens_vec(n_docs);
     for (int i = 0; i < docs.size(); i++) {
         for (int j = 0; j < docs[i].size(); j++) {
             auto group_sz = sizeof(group_t) / sizeof(uint16_t);
@@ -133,7 +136,8 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     std::cout << "cudaMemcpy H2D docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dt1 - dt).count() << " ms " << std::endl;
 
     std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
-    cudaMemcpy(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_doc_lens, h_doc_lens_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice);
     std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
     std::cout << "cudaMemcpy H2D doc_lens cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dlt1 - dlt).count() << " ms " << std::endl;
 
@@ -188,4 +192,5 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
     // delete[] h_docs;
     cudaFreeHost(h_docs);
+    cudaFreeHost(h_doc_lens_vec);
 }
