@@ -72,6 +72,15 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     cudaDeviceProp device_props;
     cudaGetDeviceProperties(&device_props, 0);
     cudaSetDevice(0);
+#ifdef MAP_HOST_MEMORY
+    // check deviceOverlap
+    if (device_props.canMapHostMemory != 1) {
+        printf("device don't support MapHostMemory,so can't zero copy\n");
+    } else {
+        printf("device support MapHostMemory,so can zero-copy\n");
+        cudaSetDeviceFlags(cudaDeviceMapHost);
+    }
+#endif
 
     auto n_docs = docs.size();
     std::vector<float> s_scores(n_docs);
@@ -104,13 +113,23 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     // pre align docs -> h_docs [n_docs,MAX_DOC_SIZE], h_doc_lens_vec[n_docs]
     std::chrono::high_resolution_clock::time_point dgt = std::chrono::high_resolution_clock::now();
     uint16_t *h_docs = nullptr;
+    int *h_doc_lens_vec = nullptr;
     // h_docs= new uint16_t[MAX_DOC_SIZE * n_docs];
     // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1gb65da58f444e7230d3322b6126bb4902
     // cudaMallocHost(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);  // cudaHostAllocDefault
+#ifdef MAP_HOST_MEMORY
+    if (device_props.canMapHostMemory == 1) {
+        cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocPortable | cudaHostAllocMapped | cudaHostAllocWriteCombined);
+        cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocPortable | cudaHostAllocMapped | cudaHostAllocWriteCombined);
+    } else {
+        cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
+        cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+    }
+#else
     cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
-    cudaMemset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
-    int *h_doc_lens_vec = nullptr;
     cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+#endif
+    cudaMemset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
     // cudaMemset(h_doc_lens, 0, sizeof(int) * n_docs);
     // std::vector<int> h_doc_lens_vec(n_docs);
     for (int i = 0; i < docs.size(); i++) {
@@ -131,13 +150,21 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
     // copy H2D global memory
     std::chrono::high_resolution_clock::time_point dt = std::chrono::high_resolution_clock::now();
+#ifdef MAP_HOST_MEMORY
+    cudaHostGetDevicePointer((void **)&d_docs, h_docs, 0);
+#else
     cudaMemcpy(d_docs, h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaMemcpyHostToDevice);
+#endif
     std::chrono::high_resolution_clock::time_point dt1 = std::chrono::high_resolution_clock::now();
     std::cout << "cudaMemcpy H2D docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dt1 - dt).count() << " ms " << std::endl;
 
     std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
     // cudaMemcpy(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+#ifdef MAP_HOST_MEMORY
+    cudaHostGetDevicePointer((void **)&d_doc_lens, h_doc_lens_vec, 0);
+#else
     cudaMemcpy(d_doc_lens, h_doc_lens_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice);
+#endif
     std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
     std::cout << "cudaMemcpy H2D doc_lens cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dlt1 - dlt).count() << " ms " << std::endl;
 
