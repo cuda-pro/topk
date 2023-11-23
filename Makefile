@@ -99,6 +99,14 @@ build_cpu_gpu_doc_stream: init
 		$(OPTIMIZE_CFLAGS) --default-stream per-thread \
 		-DGPU \
 		-g
+build_cpu_gpu_pinned_doc_stream: init
+	$(NVCC) ./main.cpp ./topk_doc_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_pinned_doc_stream  \
+		-I./ \
+		$(NVCCLIB_CUDA) \
+		$(NVCCFLAGS) \
+		$(OPTIMIZE_CFLAGS) --default-stream per-thread \
+		-DGPU -DPINNED_MEMORY \
+		-g
 
 build_cpu_gpu_hashtable: init
 	$(NVCC) ./main.cpp ./topk_hashtable.cu -o ./bin/query_doc_scoring_cpu_gpu_hashtable \
@@ -123,7 +131,7 @@ build_cpu_gpu_pinned_align_locality: init
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
-		-DGPU -DPINNED_MEMORY\
+		-DGPU -DPINNED_MEMORY \
 		-g
 
 build_cpu_gpu_pinned_memory: init
