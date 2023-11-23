@@ -186,10 +186,10 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         // cudaMemcpyAsync(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
         // cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
 #ifdef MAP_HOST_MEMORY
-        cudaHostGetDevicePointer((void **)&d_doc_lens, h_doc_lens_vec, 0);
-        cudaHostGetDevicePointer((void **)&d_doc_offsets, h_doc_offsets_vec, 0);
+        cudaHostGetDevicePointer(&d_doc_lens, h_doc_lens_vec, 0);
+        cudaHostGetDevicePointer(&d_doc_offsets, h_doc_offsets_vec, 0);
 #else
-        udaMemcpyAsync(d_doc_lens, h_doc_lens_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+        cudaMemcpyAsync(d_doc_lens, h_doc_lens_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
         cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
 #endif
         std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
@@ -204,13 +204,13 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaFreeHost(h_docs);
         cudaFreeHost(h_doc_lens_vec);
         cudaFreeHost(h_doc_offsets_vec);
-        cudaFree(d_in_docs);
-        cudaFree(d_doc_offsets);
         cudaStreamDestroy(stream);
 
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docsAlignKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
     }
+    cudaFree(d_in_docs);
+    cudaFree(d_doc_offsets);
     std::chrono::high_resolution_clock::time_point dgt1 = std::chrono::high_resolution_clock::now();
     std::cout << "align group docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dgt1 - dgt).count() << " ms " << std::endl;
 
@@ -233,7 +233,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
-        int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
+        int topk = n_docs > TOPK ? TOPK : n_docs;
         // sort scores with Heap-based sort
         // todo: Bitonic sort by gpu
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
