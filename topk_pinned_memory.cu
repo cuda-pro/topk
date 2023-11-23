@@ -191,7 +191,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
-        int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
+        int topk = n_docs > TOPK ? TOPK : n_docs;
         // sort scores with Heap-based sort
         // todo: Bitonic sort by gpu
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
@@ -224,4 +224,5 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     // delete[] h_docs;
     cudaFreeHost(h_docs);
     cudaFreeHost(h_doc_lens_vec);
+    cudaFreeHost(s_scores);
 }

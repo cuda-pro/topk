@@ -298,10 +298,12 @@ clean_3d_gpu_selection:
 	@rm -rf third_party/gpu_selection/build
 
 
-# make build_3d_faiss NVCCSTD=c++14 CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release
-CXXFLAGS += -fPIC 
-NVCCFLAGS += -Xcompiler "-fPIC"
-CPPFLAGS = $(OPTIMIZE_CFLAGS) -g -I./third_party/ -I$(CUDA_PATH)/include
+# make build_3d_faiss NVCCSTD=c++14 CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release TARGET=build_3d_faiss
+ifeq ($(TARGET),build_3d_faiss)
+  CXXFLAGS += -fPIC 
+  NVCCFLAGS += -Xcompiler "-fPIC"
+  CPPFLAGS = $(OPTIMIZE_CFLAGS) -g -I./third_party/ -I$(CUDA_PATH)/include
+endif
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) $(CPPFLAGS) -c $< -o $@
 

@@ -98,7 +98,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
 
     auto n_docs = docs.size();
     auto n_querys = querys.size();
-    std::vector<int> s_scores(n_docs);
+    // std::vector<int> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
     std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
     // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
@@ -212,13 +212,12 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
         std::partial_sort(s_indices.begin(),
                           s_indices.begin() + topk,
                           s_indices.end(),
-                          [&q_scores, i, start_doc_id](const int& a, const int& b) {
-                              if (q_scores[i][a - start_doc_id] != q_scores[i][b - start_doc_id]) {
-                                  return q_scores[i][a - start_doc_id] > q_scores[i][b - start_doc_id];
+                          [q_scores, i, start_doc_id, n_docs](const int& a, const int& b) {
+                              if (*(q_scores + i * n_docs + (a - start_doc_id)) != *(q_scores + i * n_docs + (b - start_doc_id))) {
+                                  return *(q_scores + i * n_docs + (a - start_doc_id)) > *(q_scores + i * n_docs + (b - start_doc_id));
                               }
                               return a < b;
                           });
-
         std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
         indices.push_back(topk_doc_ids);
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
@@ -227,10 +226,11 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
                   << std::endl;
 
         std::vector<float> topk_scores(topk_doc_ids.size());
-        int i = 0;
+        int j = 0;
         for (auto doc_id : topk_doc_ids) {
-            topk_scores[i++] = q_scores[i][doc_id - start_doc_id];
+            topk_scores[j++] = *(q_scores + i * n_docs + (doc_id - start_doc_id));
         }
+
         scores.emplace_back(topk_scores);
     }
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();

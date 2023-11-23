@@ -7,7 +7,7 @@ mkdir -p bin
 ARCH=70
 [ -n "$1" ] && ARCH=$1
 [ ! -f "./third_party/done.txt" ] && bash -x download_third_party.sh
-[ ! -f "./lib/libfaiss.so" ] && make build_3d_faiss NVCCSTD=c++14 ARCH=${ARCH} CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release
+[ ! -f "./lib/libfaiss.so" ] && make build_3d_faiss NVCCSTD=c++14 ARCH=${ARCH} CXXFLAGS="-std=c++14 -fPIC" BUILD_TYPE=Release TARGET=build_3d_faiss
 [ ! -f "./lib/libgpu_selection.so" ] && make build_3d_gpu_selection ARCH=${ARCH}
 
 nvcc -o bin/example_factory_selectk example_factory_selectk.cu \
