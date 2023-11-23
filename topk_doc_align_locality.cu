@@ -143,9 +143,30 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaStream_t stream;
         cudaStreamCreate(&stream);
 
-        uint16_t *h_docs = new uint16_t[n_docs * MAX_DOC_SIZE];
-        std::vector<int> h_doc_lens_vec(n_docs);
-        std::vector<int> h_doc_offsets_vec(n_docs);
+        // uint16_t *h_docs = new uint16_t[n_docs * MAX_DOC_SIZE];
+        // std::vector<int> h_doc_lens_vec(n_docs);
+        // std::vector<int> h_doc_offsets_vec(n_docs);
+        uint16_t *h_docs = nullptr;
+        int *h_doc_lens_vec = nullptr;
+        int *h_doc_offsets_vec = nullptr;
+        // h_docs= new uint16_t[MAX_DOC_SIZE * n_docs];
+        // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1gb65da58f444e7230d3322b6126bb4902
+        // cudaMallocHost(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);  // cudaHostAllocDefault
+#ifdef MAP_HOST_MEMORY
+        if (device_props.canMapHostMemory == 1) {
+            cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocPortable | cudaHostAllocMapped | cudaHostAllocWriteCombined);
+            cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocPortable | cudaHostAllocMapped | cudaHostAllocWriteCombined);
+            cudaHostAlloc(&h_doc_offsets_vec, sizeof(int) * n_docs, cudaHostAllocPortable | cudaHostAllocMapped | cudaHostAllocWriteCombined);
+        } else {
+            cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
+            cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+            cudaHostAlloc(&h_doc_offsets_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+        }
+#else
+        cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
+        cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+        cudaHostAlloc(&h_doc_offsets_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+#endif
         size_t offset = 0;
         for (int i = 0; i < docs.size(); i++) {
             h_doc_lens_vec[i] = docs[i].size();
@@ -153,13 +174,24 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
             memcpy(h_docs + offset, docs[i].data(), sizeof(uint16_t) * h_doc_lens_vec[i]);
             offset += h_doc_lens_vec[i];
         }
+#ifdef MAP_HOST_MEMORY
+        cudaHostGetDevicePointer(&d_in_docs, h_docs, 0);
+#else
         cudaMemcpyAsync(d_in_docs, h_docs, sizeof(uint16_t) * offset, cudaMemcpyHostToDevice, stream);
+#endif
         std::chrono::high_resolution_clock::time_point pt1 = std::chrono::high_resolution_clock::now();
         std::cout << "int offset cost " << std::chrono::duration_cast<std::chrono::milliseconds>(pt1 - pt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
-        cudaMemcpyAsync(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
-        cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+        // cudaMemcpyAsync(d_doc_lens, h_doc_lens_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+        // cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec.data(), sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+#ifdef MAP_HOST_MEMORY
+        cudaHostGetDevicePointer((void **)&d_doc_lens, h_doc_lens_vec, 0);
+        cudaHostGetDevicePointer((void **)&d_doc_offsets, h_doc_offsets_vec, 0);
+#else
+        udaMemcpyAsync(d_doc_lens, h_doc_lens_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+        cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+#endif
         std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
         std::cout << "cudaMemcpy H2D doc_lens cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dlt1 - dlt).count() << " ms " << std::endl;
 
@@ -168,7 +200,10 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         docsAlignKernel<<<grid, block, 0, stream>>>(d_in_docs, d_doc_lens, d_doc_offsets, n_docs, d_docs);
         cudaStreamSynchronize(stream);
 
-        delete[] h_docs;
+        // delete[] h_docs;
+        cudaFreeHost(h_docs);
+        cudaFreeHost(h_doc_lens_vec);
+        cudaFreeHost(h_doc_offsets_vec);
         cudaFree(d_in_docs);
         cudaFree(d_doc_offsets);
         cudaStreamDestroy(stream);

@@ -116,7 +116,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaStream_t doc_streams[N_STREAM];
         std::cout << " Creating " << N_STREAM << " CUDA streams." << std::endl;
         for (int i = 0; i < N_STREAM; i++) {
-            CUDA_CALL(cudaStreamCreate(&doc_streams[i]));
+            CUDA_CALL(cudaStreamCreateWithFlags(&doc_streams[i], cudaStreamNonBlocking);
         }
 
         // init query global memory
@@ -153,10 +153,14 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
             CUDA_CALL(cudaMemcpyAsync(s_scores.data() + docs_offset,
                                       d_scores + docs_offset,
                                       sizeof(float) * docs_len, cudaMemcpyDeviceToHost, doc_streams[i]));
-            CUDA_CALL(cudaStreamSynchronize(doc_streams[i]));
+
             std::cout << "stream_id:  " << i << " docs_len:" << docs_len << std::endl;
         }
         CUDA_CHECK();
+
+        for (int i = 0; i < N_STREAM; i++) {
+            CUDA_CALL(cudaStreamSynchronize(doc_streams[i]));
+        }
 
         int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
         // sort scores with Heap-based sort

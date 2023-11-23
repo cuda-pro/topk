@@ -83,7 +83,11 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 #endif
 
     auto n_docs = docs.size();
-    std::vector<float> s_scores(n_docs);
+    // std::vector<float> s_scores(n_docs);
+    // use cudaMallocHost to allocate pinned memory
+    float *s_scores = nullptr;
+    cudaHostAlloc(&s_scores, sizeof(float) * n_docs, cudaHostAllocDefault);
+
     std::vector<int> s_indices(n_docs);
     std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
     // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
@@ -183,7 +187,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         docQueryScoringCoalescedMemoryAccessSampleKernel<<<grid, block>>>(d_docs,
                                                                           d_doc_lens, n_docs, d_query, query_len, d_scores);
         cudaDeviceSynchronize();
-        cudaMemcpy(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
+        cudaMemcpy(s_scores, d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docQueryScoringCoalescedMemoryAccessSampleKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();

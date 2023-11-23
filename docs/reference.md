@@ -38,7 +38,7 @@
 - **https://developer.nvidia.com/blog/how-overlap-data-transfers-cuda-cc/**
 - https://developer.nvidia.com/blog/gpu-pro-tip-cuda-7-streams-simplify-concurrency/
 - https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
-- https://on-demand.gputechconf.com/gtc/2014/presentations/S4158-cuda-streams-best-practices-common-pitfalls.pdf
+- **https://on-demand.gputechconf.com/gtc/2014/presentations/S4158-cuda-streams-best-practices-common-pitfalls.pdf**
 - https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-1/
 - https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-2/
 
