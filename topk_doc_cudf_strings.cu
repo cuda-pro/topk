@@ -108,7 +108,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                               return a < b;  // the same score, by index ASC
                           });
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-        std::cout << "heap partial_sort cost " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t).count() << " ms " << std::endl;
+        std::cout << "heap partial_sort cost " << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t).count() << " microseconds " << std::endl;
 
         std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
         indices.emplace_back(topk_doc_ids);

@@ -86,8 +86,9 @@ build_cpu_gpu_query_stream: init
 	$(NVCC) ./main.cpp ./topk_query_stream.cu -o ./bin/query_doc_scoring_cpu_gpu_query_stream  \
 		-I./ \
 		$(NVCCLIB_CUDA) \
-		$(NVCCFLAGS) --default-stream per-thread \
+		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DGPU \
 		-g
 
@@ -96,7 +97,8 @@ build_cpu_gpu_doc_stream: init
 		-I./ \
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
-		$(OPTIMIZE_CFLAGS) --default-stream per-thread \
+		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DGPU \
 		-g
 build_cpu_gpu_pinned_doc_stream: init
@@ -104,7 +106,8 @@ build_cpu_gpu_pinned_doc_stream: init
 		-I./ \
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
-		$(OPTIMIZE_CFLAGS) --default-stream per-thread \
+		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DGPU -DPINNED_MEMORY \
 		-g
 
@@ -123,6 +126,7 @@ build_cpu_gpu_align_locality: init
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DGPU \
 		-g
 build_cpu_gpu_pinned_align_locality: init
@@ -131,6 +135,7 @@ build_cpu_gpu_pinned_align_locality: init
 		$(NVCCLIB_CUDA) \
 		$(NVCCFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DGPU -DPINNED_MEMORY \
 		-g
 
@@ -155,21 +160,21 @@ build_cpu_gpu_readfile: init
 	$(NVCC) ./main.cpp ./readfile.cu ./topk.cu -o ./bin/query_doc_scoring_cpu_gpu_readfile \
 		-I./ \
 		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
 		$(NVCCLIB_CUDF) \
-		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-DGPU -DFMT_HEADER_ONLY -DPIO \
 		-g
 
+# make -C topk build_gpu_cudf_strings BUILD_TYPE=Release  RAPIDSAI_DIR=$HOME/rapidsai NVCCSTD=c++17
 build_gpu_cudf_strings: init
 	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_cudf_strings.cu -o ./bin/query_doc_scoring_gpu_cudf_strings \
 		-I./ \
 		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
 		$(NVCCLIB_CUDF) \
-		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
 		-g
 
@@ -177,14 +182,24 @@ build_gpu_raft_selectk: init
 	$(NVCC) ./main.cpp ./topk_raft_selectk.cu -o ./bin/query_doc_scoring_gpu_raft_selectk \
 		-I./ \
 		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
 		$(NVCCLIB_RAFT) \
-		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
 		-DGPU -DFMT_HEADER_ONLY \
 		-g
 
-
+build_gpu_cudf_strings_raft_selectk: init
+	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_cudf_strings_raft_selectk.cu -o ./bin/query_doc_scoring_gpu_cudf_strings_raft_selectk \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
+		$(NVCCLIB_CUDF) \
+		$(NVCCLIB_RAFT) \
+		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
+		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
+		-g
 
 build_examples: init build_cpu_examples build_cpu_gpu_examples
 build_cpu_examples: init build_example_threadpool build_example_readfile_cpu
@@ -208,9 +223,8 @@ build_example_readfile_gpu:
 	$(NVCC) -o bin/example_readfile_gpu example_readfile.cpp readfile.cu -DGPU -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
 		$(NVCCLIB_CUDF) \
-		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
@@ -218,9 +232,8 @@ build_example_raft_selectk:
 	$(NVCC) -o bin/example_raft_selectk example_raft_selectk.cu -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
 		$(NVCCLIB_RAFT) \
-		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
@@ -228,9 +241,8 @@ build_example_raft_selectk_null_option:
 	$(NVCC) -o bin/example_raft_selectk_null_option example_raft_selectk.cu -DNULL_OPTIONAL -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
-		$(NVCCLIB_CUDA) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
 		$(NVCCLIB_RAFT) \
-		$(NVCCLIB_LINKER) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
@@ -286,13 +298,17 @@ install_ubuntu_profiler:
 
 profile_cpu_gpu:
 #nvprof --print-gpu-trace bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
-	nsys profile  -o report_cpu_gpu.nsys-rep bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
-	ncu --set full --call-stack --nvtx -o report_cpu_gpu bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
+	@nsys profile --force-overwrite true -o report_cpu_gpu.nsys-rep \
+		bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
+	@ncu --set full --call-stack --nvtx -o report_cpu_gpu \
+		bin/query_doc_scoring_cpu_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_gpu_res.txt
 
 profile_cpu_concurency_gpu:
 #nvprof --print-gpu-trace bin/query_doc_scoring_cpu_concurency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
-	nsys profile  -o report_cpu_concurrency_gpu.nsys-rep bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
-	ncu --set full --call-stack --nvtx -o report_cpu_concurrency_gpu bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
+	@nsys profile --force-overwrite true -o report_cpu_concurrency_gpu.nsys-rep \
+		bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
+	@ncu --set full --call-stack --nvtx -o report_cpu_concurrency_gpu \
+		bin/query_doc_scoring_cpu_concurrency_gpu STI2/translate/docs.txt STI2/translate/querys ./cpu_concurency_gpu_res.txt
 
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu testdata/docs.txt testdata/query testdata/res_gpu.txt
 #nvprof --profile-from-start off --profile-child-processes --csv bin/query_doc_scoring_cpu_gpu_doc_stream testdata/docs.txt testdata/query test

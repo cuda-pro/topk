@@ -78,6 +78,8 @@ the same time.
  Synchronization between streams can be accomplished with
 — cudaStreamWaitEvent(stream,event)
  Use CUDA_LAUNCH_BLOCKING to identify race conditions
+
+more detail, use nsys profile check
 */
 void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
                            int start_doc_id,
@@ -171,12 +173,16 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
         cudaStreamCreateWithFlags(&q_streams[i], cudaStreamNonBlocking);
     }
 
-    std::chrono::high_resolution_clock::time_point lt = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point hat = std::chrono::high_resolution_clock::now();
     // query documents scores
     // std::vector<std::vector<float>> q_scores(n_querys);
     // use cudaMallocHost to allocate pinned memory
     float* q_scores = nullptr;
     cudaHostAlloc(&q_scores, sizeof(float) * n_docs * n_querys, cudaHostAllocDefault);
+    std::chrono::high_resolution_clock::time_point hat1 = std::chrono::high_resolution_clock::now();
+    std::cout << "cudaHostAlloc q_scores cost " << std::chrono::duration_cast<std::chrono::milliseconds>(hat1 - hat).count() << " ms " << std::endl;
+
+    std::chrono::high_resolution_clock::time_point lt = std::chrono::high_resolution_clock::now();
     for (int stream_id = 0; stream_id < n_querys; stream_id++) {
         const size_t query_len = querys[stream_id].size();
         cudaMemcpyAsync(d_querys + stream_id * MAX_DOC_SIZE, querys[stream_id].data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice, q_streams[stream_id]);

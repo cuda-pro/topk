@@ -135,6 +135,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     }
 
     std::chrono::high_resolution_clock::time_point ddt = std::chrono::high_resolution_clock::now();
+    docs_len = docs_chunk_size;
     for (int i = 0; i < N_STREAM; i++) {
         // last docs_chunk_size
         if (n_docs % N_STREAM > 0 && i == N_STREAM - 1) {
@@ -153,6 +154,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     std::cout << "total cudaMemcpy H2D doc cost " << std::chrono::duration_cast<std::chrono::milliseconds>(ddt1 - ddt).count() << " ms " << std::endl;
 
     std::chrono::high_resolution_clock::time_point ddlt = std::chrono::high_resolution_clock::now();
+    docs_len = docs_chunk_size;
     for (int i = 0; i < N_STREAM; i++) {
         // last docs_chunk_size
         if (n_docs % N_STREAM > 0 && i == N_STREAM - 1) {
