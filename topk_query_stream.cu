@@ -102,14 +102,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
     auto n_querys = querys.size();
     // std::vector<int> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
-    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
-    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
-    // #pragma omp parallel for schedule(static)
-    for (int j = 0; j < n_docs; ++j) {
-        s_indices[j] = j + start_doc_id;
-    }
-    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
-    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
 
     int block = N_THREADS_IN_ONE_BLOCK;
     int grid = (n_docs + block - 1) / block;
@@ -183,6 +175,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
     std::cout << "cudaHostAlloc q_scores cost " << std::chrono::duration_cast<std::chrono::milliseconds>(hat1 - hat).count() << " ms " << std::endl;
 
     std::chrono::high_resolution_clock::time_point lt = std::chrono::high_resolution_clock::now();
+#pragma omp parallel for schedule(static)
     for (int stream_id = 0; stream_id < n_querys; stream_id++) {
         const size_t query_len = querys[stream_id].size();
         cudaMemcpyAsync(d_querys + stream_id * MAX_DOC_SIZE, querys[stream_id].data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice, q_streams[stream_id]);
@@ -208,16 +201,23 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
               << std::chrono::duration_cast<std::chrono::milliseconds>(lt1 - lt).count() << " ms "
               << std::endl;
 
+    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
+    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
+#pragma omp parallel for schedule(static)
+    for (int j = 0; j < n_docs; ++j) {
+        s_indices[j] = j + start_doc_id;
+    }
+    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
+    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
+
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
+    int topk = n_docs > TOPK ? TOPK : n_docs;
     for (int i = 0; i < n_querys; i++) {
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // auto s_scores = std::move(q_scores[i]);
         // std::cout << "scores size:" << q_scores[i].size() << std::endl;
-        int topk = n_docs > TOPK ? TOPK : n_docs;
         // sort scores
-        std::partial_sort(s_indices.begin(),
-                          s_indices.begin() + topk,
-                          s_indices.end(),
+        std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
                           [q_scores, i, start_doc_id, n_docs](const int& a, const int& b) {
                               if (*(q_scores + i * n_docs + (a - start_doc_id)) != *(q_scores + i * n_docs + (b - start_doc_id))) {
                                   return *(q_scores + i * n_docs + (a - start_doc_id)) > *(q_scores + i * n_docs + (b - start_doc_id));
@@ -225,7 +225,8 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
                               return a < b;
                           });
         std::vector<int> topk_doc_ids(s_indices.begin(), s_indices.begin() + topk);
-        indices.push_back(topk_doc_ids);
+        indices.emplace_back(topk_doc_ids);
+        // indices[i] = std::move(topk_doc_ids);
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "partial_sort cost "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms "
@@ -238,6 +239,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>>& querys,
         }
 
         scores.emplace_back(topk_scores);
+        // scores[i] = std::move(topk_scores);
     }
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     std::cout << "total partial_sort cost "
