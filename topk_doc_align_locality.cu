@@ -63,7 +63,7 @@ void __global__ docQueryScoringCoalescedMemoryAccessSampleKernel(
 
 // todo: remove 2nd loop
 __global__ void docsAlignKernel(const __restrict__ uint16_t *d_in_docs,
-                                const int *d_in_doc_lens, const int *d_in_doc_offsets,
+                                const int *d_in_doc_lens,
                                 const size_t n_docs, uint16_t *d_out_docs) {
     register auto tid = blockIdx.x * blockDim.x + threadIdx.x, tnum = gridDim.x * blockDim.x;
     if (tid >= n_docs) {
@@ -79,7 +79,7 @@ __global__ void docsAlignKernel(const __restrict__ uint16_t *d_in_docs,
             auto layer_1_stride = group_sz;
             auto layer_2_offset = j % group_sz;
             auto final_offset = layer_0_offset * layer_0_stride + layer_1_offset * layer_1_stride + layer_2_offset;
-            d_out_docs[final_offset] = *(d_in_docs + d_in_doc_offsets[doc_id] + j);
+            d_out_docs[final_offset] = *(d_in_docs + doc_id * MAX_DOC_SIZE + j);
         }
     }
 }
@@ -109,14 +109,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     auto n_docs = docs.size();
     std::vector<float> s_scores(n_docs);
     std::vector<int> s_indices(n_docs);
-    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
-    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
-    // #pragma omp parallel for schedule(static)
-    for (int j = 0; j < n_docs; ++j) {
-        s_indices[j] = j + start_doc_id;
-    }
-    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
-    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
 
     // launch kernel grid block size, just use 1D x
     int block = N_THREADS_IN_ONE_BLOCK;
@@ -124,7 +116,8 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
     float *d_scores = nullptr;
     uint16_t *d_docs = nullptr, *d_in_docs = nullptr, *d_query = nullptr;
-    int *d_doc_lens = nullptr, *d_doc_offsets = nullptr;
+    int *d_doc_lens = nullptr;
+    // int *d_doc_offsets = nullptr;
 
     // init device global memory
     std::chrono::high_resolution_clock::time_point dat = std::chrono::high_resolution_clock::now();
@@ -132,7 +125,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     cudaMalloc(&d_in_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
     cudaMalloc(&d_scores, sizeof(float) * n_docs);
     cudaMalloc(&d_doc_lens, sizeof(int) * n_docs);
-    cudaMalloc(&d_doc_offsets, sizeof(int) * n_docs);
+    // cudaMalloc(&d_doc_offsets, sizeof(int) * n_docs);
     std::chrono::high_resolution_clock::time_point dat1 = std::chrono::high_resolution_clock::now();
     std::cout << "cudaMalloc docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dat1 - dat).count() << " ms " << std::endl;
 
@@ -145,48 +138,48 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         uint16_t *h_docs = nullptr;
         int *h_doc_lens_vec = nullptr;
-        int *h_doc_offsets_vec = nullptr;
+        // int *h_doc_offsets_vec = nullptr;
 #ifdef PINNED_MEMORY
         // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1gb65da58f444e7230d3322b6126bb4902
         cudaMallocHost(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);  // cudaHostAllocDefault
         // cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
         cudaHostAlloc(&h_doc_lens_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
-        cudaHostAlloc(&h_doc_offsets_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+        // cudaHostAlloc(&h_doc_offsets_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
 #else
         h_docs = new uint16_t[MAX_DOC_SIZE * n_docs];
         h_doc_lens_vec = new int[n_docs];
-        h_doc_offsets_vec = new int[n_docs];
+        // h_doc_offsets_vec = new int[n_docs];
 #endif
-        size_t offset = 0;
+        // size_t offset = 0;
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < docs.size(); i++) {
             h_doc_lens_vec[i] = docs[i].size();
-            h_doc_offsets_vec[i] = offset;
-            memcpy(h_docs + offset, docs[i].data(), sizeof(uint16_t) * h_doc_lens_vec[i]);
-            offset += h_doc_lens_vec[i];
+            // h_doc_offsets_vec[i] = MAX_DOC_SIZE * i;
+            memcpy(h_docs + MAX_DOC_SIZE * i, docs[i].data(), sizeof(uint16_t) * h_doc_lens_vec[i]);
         }
-        cudaMemcpyAsync(d_in_docs, h_docs, sizeof(uint16_t) * offset, cudaMemcpyHostToDevice, stream);
         std::chrono::high_resolution_clock::time_point pt1 = std::chrono::high_resolution_clock::now();
         std::cout << "int offset cost " << std::chrono::duration_cast<std::chrono::milliseconds>(pt1 - pt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point dlt = std::chrono::high_resolution_clock::now();
+        cudaMemcpyAsync(d_in_docs, h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaMemcpyHostToDevice, stream);
         cudaMemcpyAsync(d_doc_lens, h_doc_lens_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
-        cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
+        // cudaMemcpyAsync(d_doc_offsets, h_doc_offsets_vec, sizeof(int) * n_docs, cudaMemcpyHostToDevice, stream);
         std::chrono::high_resolution_clock::time_point dlt1 = std::chrono::high_resolution_clock::now();
         std::cout << "cudaMemcpy H2D doc_lens cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dlt1 - dlt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
-        docsAlignKernel<<<grid, block, 0, stream>>>(d_in_docs, d_doc_lens, d_doc_offsets, n_docs, d_docs);
-        cudaStreamSynchronize(stream);
+        docsAlignKernel<<<grid, block, 0, stream>>>(d_in_docs, d_doc_lens, n_docs, d_docs);
+        // cudaStreamSynchronize(stream);
 
 #ifdef PINNED_MEMORY
         cudaFreeHost(h_docs);
         cudaFreeHost(h_doc_lens_vec);
-        cudaFreeHost(h_doc_offsets_vec);
+        // cudaFreeHost(h_doc_offsets_vec);
 #else
         delete[] h_docs;
         delete[] h_doc_lens_vec;
-        delete[] h_doc_offsets_vec;
+        // delete[] h_doc_offsets_vec;
 #endif
         cudaStreamDestroy(stream);
 
@@ -194,9 +187,18 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         std::cout << "docsAlignKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
     }
     cudaFree(d_in_docs);
-    cudaFree(d_doc_offsets);
+    // cudaFree(d_doc_offsets);
     std::chrono::high_resolution_clock::time_point dgt1 = std::chrono::high_resolution_clock::now();
     std::cout << "align group docs cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dgt1 - dgt).count() << " ms " << std::endl;
+
+    std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
+    // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
+#pragma omp parallel for schedule(static)
+    for (int j = 0; j < n_docs; ++j) {
+        s_indices[j] = j + start_doc_id;
+    }
+    std::chrono::high_resolution_clock::time_point it1 = std::chrono::high_resolution_clock::now();
+    std::cout << "iota indeices cost " << std::chrono::duration_cast<std::chrono::milliseconds>(it1 - it).count() << " ms " << std::endl;
 
     for (auto &query : querys) {
         const size_t query_len = query.size();
