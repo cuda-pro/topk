@@ -209,6 +209,18 @@ build_gpu_pinned_doc_align_locality_query_stream_raft_selectk: init
 		$(NVCC_STREAM_FLAGS) \
 		-DGPU -DFMT_HEADER_ONLY -DPINNED_MEMORY \
 		-g
+build_gpu_readfile_doc_align_locality_query_stream_raft_selectk: init
+	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_align_locality_query_stream_raft_selectk.cu \
+		-o ./bin/query_doc_scoring_gpu_readfile_doc_align_locality_query_stream_raft_selectk \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
+		$(NVCCLIB_CUDF) \
+		$(NVCCLIB_RAFT) \
+		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
+		-DGPU -DFMT_HEADER_ONLY -DPIO \
+		-g
 
 build_gpu_cudf_strings_raft_selectk: init
 	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_cudf_strings_raft_selectk.cu -o ./bin/query_doc_scoring_gpu_cudf_strings_raft_selectk \
