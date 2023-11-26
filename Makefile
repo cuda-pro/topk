@@ -319,9 +319,10 @@ archive_gpu_raft_selectk:
 		build.sh run.sh src \
 		&& zip -sf gpu_raft_selectk_topk.zip
 
+# ping bj.bcebos.com
 get_gpu_baseline:
-	wget "https://bj.bcebos.com/v1/ai-studio-online/9805dd2d2e8e472693efac637628e16b9f9c5be0fe30438bb4a80de3b386781a?responseContentDisposition=attachment%3B%20filename%3DSTI2_1017.zip&authorization=bce-auth-v1%2F5cfe9a5e1454405eb2a975c43eace6ec%2F2023-10-18T12%3A42%3A27Z%2F-1%2F%2F6b5388dcd9013bc9b340bb1806476afa938ce0c65f2f595e1a75f529e90e4187" -O STI2_1017.zip
-	rm -rf STI2 && unzip STI2_1017.zip && mv STI2\ 2 STI2
+	@wget "https://bj.bcebos.com/v1/ai-studio-online/9805dd2d2e8e472693efac637628e16b9f9c5be0fe30438bb4a80de3b386781a?responseContentDisposition=attachment%3B%20filename%3DSTI2_1017.zip&authorization=bce-auth-v1%2F5cfe9a5e1454405eb2a975c43eace6ec%2F2023-10-18T12%3A42%3A27Z%2F-1%2F%2F6b5388dcd9013bc9b340bb1806476afa938ce0c65f2f595e1a75f529e90e4187" -O STI2_1017.zip
+	@rm -rf STI2 && unzip STI2_1017.zip && mv STI2\ 2 STI2
 
 install_ubuntu_profiler:
 	@wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/nsight-systems-2023.2.3_2023.2.3.1001-1_amd64.deb

@@ -116,3 +116,7 @@ detail see: [my_colab_gpu_topk.ipynb](https://github.com/weedge/doraemon-nb/blob
 7. https://github.com/upsj/gpu_selection
 8. https://github.com/Anil-Gaihre/DrTopKSC
 9. https://github.com/ZhangJingrong/gpu_topK_benchmark
+
+
+## view talk case
+- https://www.nvidia.cn/on-demand/session/gtccn2020-cns20483/
