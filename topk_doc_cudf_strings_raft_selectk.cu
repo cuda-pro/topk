@@ -57,7 +57,8 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            int start_doc_id, const int n_docs,
                            cudf::column_device_view const d_docs,
                            std::vector<std::vector<int>> &indices,
-                           std::vector<std::vector<float>> &scores) {
+                           std::vector<std::vector<float>> &scores,
+                           rmm::cuda_stream_view stream) {
     // use one gpu device
     cudaDeviceProp device_props;
     cudaGetDeviceProperties(&device_props, 0);
@@ -80,7 +81,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         uint16_t *d_query = nullptr;
         std::chrono::high_resolution_clock::time_point qt = std::chrono::high_resolution_clock::now();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
-        cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice, stream.value());
         std::chrono::high_resolution_clock::time_point qt1 = std::chrono::high_resolution_clock::now();
         std::cout << "cudaMemcpy H2D query cost " << std::chrono::duration_cast<std::chrono::milliseconds>(qt1 - qt).count() << " ms " << std::endl;
 
@@ -88,9 +89,9 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
-        docQueryScoringCoalescedMemoryAccessKernel<<<grid, block>>>(d_docs, n_docs,
-                                                                    d_query, query_len, d_scores);
-        cudaDeviceSynchronize();
+        docQueryScoringCoalescedMemoryAccessKernel<<<grid, block, 0, stream.value()>>>(d_docs, n_docs,
+                                                                                       d_query, query_len, d_scores);
+        cudaStreamSynchronize(stream.value());
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docQueryScoringCoalescedMemoryAccessKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
 

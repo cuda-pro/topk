@@ -24,12 +24,16 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &query,
 #include <cudf/column/column_device_view.cuh>
 #include <cudf/lists/lists_column_device_view.cuh>
 #include <cudf/types.hpp>
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            int start_doc_id, int n_docs,
                            cudf::column_device_view const d_docs,
                            std::vector<std::vector<int>> &indices,
-                           std::vector<std::vector<float>> &scores);
+                           std::vector<std::vector<float>> &scores,
+                           rmm::cuda_stream_view stream = cudf::get_default_stream());
 #else
 void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &query,
                            int start_doc_id,

@@ -47,9 +47,19 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
                            int start_doc_id, const int n_docs,
                            cudf::column_device_view const d_docs,
                            std::vector<std::vector<int>> &indices,
-                           std::vector<std::vector<float>> &scores) {
-    std::vector<float> s_scores(n_docs);
+                           std::vector<std::vector<float>> &scores,
+                           rmm::cuda_stream_view stream) {
+    // use one gpu device
+    cudaDeviceProp device_props;
+    cudaGetDeviceProperties(&device_props, 0);
+    cudaSetDevice(0);
+
     std::vector<int> s_indices(n_docs);
+    // std::vector<float> s_scores(n_docs);
+    // use cudaMallocHost to allocate pinned memory
+    float *s_scores = nullptr;
+    cudaHostAlloc(&s_scores, sizeof(float) * n_docs, cudaHostAllocDefault);
+
     std::chrono::high_resolution_clock::time_point it = std::chrono::high_resolution_clock::now();
     // std::iota(s_indices.begin(), s_indices.end(), start_doc_id);
     // #pragma omp parallel for schedule(static)
@@ -70,18 +80,13 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
     std::chrono::high_resolution_clock::time_point dat1 = std::chrono::high_resolution_clock::now();
     std::cout << "cudaMalloc cost " << std::chrono::duration_cast<std::chrono::milliseconds>(dat1 - dat).count() << " ms " << std::endl;
 
-    // use one gpu device
-    cudaDeviceProp device_props;
-    cudaGetDeviceProperties(&device_props, 0);
-    cudaSetDevice(0);
-
     for (auto &query : querys) {
         // allocate device global memory for input query
         const size_t query_len = query.size();
         uint16_t *d_query = nullptr;
         std::chrono::high_resolution_clock::time_point qt = std::chrono::high_resolution_clock::now();
         cudaMalloc(&d_query, sizeof(uint16_t) * query_len);
-        cudaMemcpy(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(d_query, query.data(), sizeof(uint16_t) * query_len, cudaMemcpyHostToDevice, stream.value());
         std::chrono::high_resolution_clock::time_point qt1 = std::chrono::high_resolution_clock::now();
         std::cout << "cudaMemcpy H2D query cost " << std::chrono::duration_cast<std::chrono::milliseconds>(qt1 - qt).count() << " ms " << std::endl;
 
@@ -89,19 +94,18 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
 
         std::chrono::high_resolution_clock::time_point tt = std::chrono::high_resolution_clock::now();
         // cudaLaunchKernel
-        docQueryScoringCoalescedMemoryAccessKernel<<<grid, block>>>(d_docs, n_docs,
-                                                                    d_query, query_len, d_scores);
-        cudaDeviceSynchronize();
-        cudaMemcpy(s_scores.data(), d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost);
+        docQueryScoringCoalescedMemoryAccessKernel<<<grid, block, 0, stream.value()>>>(d_docs, n_docs,
+                                                                                       d_query, query_len, d_scores);
+        cudaMemcpyAsync(s_scores, d_scores, sizeof(float) * n_docs, cudaMemcpyDeviceToHost, stream.value());
+        cudaStreamSynchronize(stream.value());
         std::chrono::high_resolution_clock::time_point tt1 = std::chrono::high_resolution_clock::now();
         std::cout << "docQueryScoringCoalescedMemoryAccessKernel cost " << std::chrono::duration_cast<std::chrono::milliseconds>(tt1 - tt).count() << " ms " << std::endl;
 
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
-        int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
+        int topk = n_docs > TOPK ? TOPK : n_docs;
         // sort scores with Heap-based sort
-        // @todo: Bitonic/Radix sort by gpu
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
-                          [&s_scores, start_doc_id](const int &a, const int &b) {
+                          [s_scores, start_doc_id](const int &a, const int &b) {
                               if (s_scores[a - start_doc_id] != s_scores[b - start_doc_id]) {
                                   return s_scores[a - start_doc_id] > s_scores[b - start_doc_id];  // by score DESC
                               }
@@ -123,6 +127,6 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         cudaFree(d_query);
     }
 
-    // deallocation
     cudaFree(d_scores);
+    cudaFreeHost(s_scores);
 }

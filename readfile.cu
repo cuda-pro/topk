@@ -224,7 +224,7 @@ void load_file_cudf_chunk_topk(const std::string docs_file_name,
 
         std::vector<std::vector<int>> sub_topk_indices;
         std::vector<std::vector<float>> sub_topk_scores;
-        doc_query_scoring_gpu(queries, doccnt, lines->size(), *d_col, sub_topk_indices, sub_topk_scores);
+        doc_query_scoring_gpu(queries, doccnt, lines->size(), *d_col, sub_topk_indices, sub_topk_scores, cudf::get_default_stream());
         for (auto i = 0; i < queries.size(); i++) {
             q_indices[i].insert(q_indices[i].end(), sub_topk_indices[i].begin(), sub_topk_indices[i].end());
             q_scores[i].insert(q_scores[i].end(), sub_topk_scores[i].begin(), sub_topk_scores[i].end());
