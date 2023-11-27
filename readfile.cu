@@ -65,7 +65,7 @@ void load_file_cudf_chunk(std::string docs_file_name, std::vector<std::vector<ui
         cudf::io::text::parse_options options;
         options.strip_delimiters = false;
         auto source = cudf::io::text::make_source(chunk_buff);
-        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options);
+        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, cudf::get_default_stream());
         auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","));
         auto const d_col = cudf::column_device_view::create(vec_lines->view());
 
@@ -164,7 +164,7 @@ void load_file_stream_cudf_chunk(std::string docs_file_name, std::vector<std::ve
         options.strip_delimiters = false;
         auto source = cudf::io::text::make_source(chunk_buff);
         // todo:: need multibyte_split support stream
-        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options);
+        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, cudf::get_default_stream());
         auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","));
         auto const d_col = cudf::column_device_view::create(vec_lines->view());
         // todo: launch docsKernel with stream
@@ -218,7 +218,7 @@ void load_file_cudf_chunk_topk(const std::string docs_file_name,
         cudf::io::text::parse_options options;
         options.strip_delimiters = false;
         auto source = cudf::io::text::make_source(chunk_buff);
-        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options);
+        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, cudf::get_default_stream());
         auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","));
         auto const d_col = cudf::column_device_view::create(vec_lines->view());
 

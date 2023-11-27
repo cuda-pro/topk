@@ -15,6 +15,7 @@
 - **https://people.maths.ox.ac.uk/~gilesm/cuda/lecs/lec6_wes.pdf**
 - https://www.csd.uwo.ca/~mmorenom/HPC-Slides/Many_core_computing_with_CUDA.pdf
 - [Exploring Performance Portability for Accelerators via High-level Parallel Patterns](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=4Ab_NBkAAAAJ&citation_for_view=4Ab_NBkAAAAJ:hqOjcs7Dif8C), [PPT](https://pdfs.semanticscholar.org/b34a/f7c4739d622379fa31a1e88155335061c1b1.pdf)
+- https://www.csd.uwo.ca/~mmorenom/HPC-Slides/Optimizing_CUDA_Code-2x2.pdf
 
 
 - 
@@ -51,3 +52,4 @@
 - https://developer.nvidia.com/blog/how-optimize-data-transfers-cuda-cc/
 - https://developer.nvidia.com/blog/how-query-device-properties-and-handle-errors-cuda-cc/
 - https://developer.nvidia.com/blog/easy-introduction-cuda-c-and-c/
+- **https://developer.nvidia.com/blog/efficient-matrix-transpose-cuda-cc/**

@@ -119,4 +119,5 @@ detail see: [my_colab_gpu_topk.ipynb](https://github.com/weedge/doraemon-nb/blob
 
 
 ## view talk case
+- https://www.nvidia.cn/on-demand/session/gtccn2020-cns20516/
 - https://www.nvidia.cn/on-demand/session/gtccn2020-cns20483/

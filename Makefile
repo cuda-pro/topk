@@ -15,7 +15,8 @@ NVCCFLAGS ?= -std=$(NVCCSTD) -Xcompiler="-fopenmp" --expt-relaxed-constexpr --ex
 RAPIDSAI_DIR ?= 
 NVCCLIB_CUDA ?= -L$(CUDA_PATH)/lib64 -lcudart -lcuda
 NVCCLIB_CUDF ?= -L$(RAPIDSAI_DIR)/lib -lcudf -I$(RAPIDSAI_DIR)/include 
-NVCCLIB_RAFT ?= -L$(RAPIDSAI_DIR)/lib -lraft -I$(RAPIDSAI_DIR)/include 
+NVCCLIB_RAFT ?= -L$(RAPIDSAI_DIR)/lib -lraft -I$(RAPIDSAI_DIR)/include
+#NVCCLIB_CCCL ?= -I$(RAPIDSAI_DIR)/cccl/thrust -I$(RAPIDSAI_DIR)/cccl/libcudacxx/include -I$(RAPIDSAI_DIR)/cccl/cub
 NVCCLIB_LINKER ?=
 #NVCCLIB_LINKER ?= -Xlinker="-rpath,$(RAPIDSAI_DIR)/lib"
 NVCC_STREAM_FLAGS ?= --default-stream per-thread
@@ -238,21 +239,21 @@ build_examples: init build_cpu_examples build_cpu_gpu_examples
 build_cpu_examples: init build_example_threadpool build_example_readfile_cpu
 build_cpu_gpu_examples: init build_example_readfile_gpu build_example_raft_selectk build_example_raft_selectk_null_option
 
-build_example_threadpool:
+build_example_threadpool: init
 	$(CXX) -o bin/example_threadpool example_threadpool.cpp \
 		-I./ \
 		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
-build_example_readfile_cpu:
+build_example_readfile_cpu: init
 	$(NVCC) -o bin/example_readfile_cpu example_readfile.cpp -DFMT_HEADER_ONLY \
 		-I./ \
 		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
-build_example_readfile_gpu:
+build_example_readfile_gpu: init
 	$(NVCC) -o bin/example_readfile_gpu example_readfile.cpp readfile.cu -DGPU -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
@@ -261,7 +262,7 @@ build_example_readfile_gpu:
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
-build_example_raft_selectk:
+build_example_raft_selectk: init
 	$(NVCC) -o bin/example_raft_selectk example_raft_selectk.cu -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
@@ -270,7 +271,7 @@ build_example_raft_selectk:
 		$(OPTIMIZE_CFLAGS) \
 		-g
 
-build_example_raft_selectk_null_option:
+build_example_raft_selectk_null_option: init
 	$(NVCC) -o bin/example_raft_selectk_null_option example_raft_selectk.cu -DNULL_OPTIONAL -DFMT_HEADER_ONLY \
 		-I./ \
 		$(NVCCFLAGS) \
