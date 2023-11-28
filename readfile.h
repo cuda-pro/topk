@@ -17,8 +17,12 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
+#ifdef PIO_CPU_CONCURRENCY
+#include "threadpool.h"
+#endif
 
 #define CHUNK_SIZE 1024 * 1024 * 256
 

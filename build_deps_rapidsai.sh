@@ -23,9 +23,9 @@ if [ ! -f "$HOME/rapidsai/lib/libcudf.a" ]; then
 
     # use v23.10 rmm
     rm -rf ./rmm-23.10.00
-    wget https://github.com/rapidsai/rmm/archive/refs/tags/v23.10.00.tar.gz
+    wget https://github.com/rapidsai/rmm/archive/refs/tags/v23.10.00.tar.gz -O rmm.tar.gz
     tar -zxvf rmm.tar.gz
-    cp -r rmm/include/rmm /root/rapidsai/include/
+    cp -r ./rmm-23.10.00/include/rmm /root/rapidsai/include/
 fi
 
 if [ ! -f "$HOME/rapidsai/lib/libraft.a" ]; then

@@ -1,6 +1,6 @@
 CXX ?= g++
 CXXSTD ?= c++11
-CXXFLAGS ?= -std=$(CXXSTD) -march=native
+CXXFLAGS ?= -std=$(CXXSTD) -march=native -fopenmp
 #CXXFLAGS ?= -std=$(CXXSTD) -Wall -march=native -pthread -fopenmp
 #CXXFLAGS ?= -std=$(CXXSTD) -march=native -pthread -fopenmp
 
@@ -178,6 +178,16 @@ build_gpu_cudf_strings: init
 		$(NVCC_STREAM_FLAGS) \
 		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
 		-g
+build_cpu_concurrency_gpu_cudf_strings: init
+	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_cudf_strings.cu -o ./bin/query_doc_scoring_cpu_concurrency_gpu_cudf_strings \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
+		$(NVCCLIB_CUDF) \
+		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
+		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK -DPIO_CPU_CONCURRENCY \
+		-g
 
 build_gpu_raft_selectk: init
 	$(NVCC) ./main.cpp ./topk_raft_selectk.cu -o ./bin/query_doc_scoring_gpu_raft_selectk \
@@ -233,6 +243,17 @@ build_gpu_cudf_strings_raft_selectk: init
 		$(OPTIMIZE_CFLAGS) \
 		$(NVCC_STREAM_FLAGS) \
 		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK \
+		-g
+build_cpu_concurrency_gpu_cudf_strings_raft_selectk: init
+	$(NVCC) ./main.cpp ./readfile.cu ./topk_doc_cudf_strings_raft_selectk.cu -o ./bin/query_doc_scoring_cpu_concurrency_gpu_cudf_strings_raft_selectk \
+		-I./ \
+		$(NVCCFLAGS) \
+		$(NVCCLIB_CUDA) $(NVCCLIB_LINKER) \
+		$(NVCCLIB_CUDF) \
+		$(NVCCLIB_RAFT) \
+		$(OPTIMIZE_CFLAGS) \
+		$(NVCC_STREAM_FLAGS) \
+		-DFMT_HEADER_ONLY -DGPU -DPIO_TOPK -DPIO_CPU_CONCURRENCY \
 		-g
 
 build_examples: init build_cpu_examples build_cpu_gpu_examples

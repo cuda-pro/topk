@@ -60,54 +60,75 @@ void load_file_cudf_chunk(std::string docs_file_name, std::vector<std::vector<ui
         std::cout << " fread size: " << count << std::endl;
         // std::cout << " buffer: " << chunk_buff << std::endl;
 
+        cudaStream_t stream;
+        cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+        rmm::cuda_stream_view stream_view(stream);
         // cudf multibyte_split
         auto delimiter = "\n";
         cudf::io::text::parse_options options;
         options.strip_delimiters = false;
         auto source = cudf::io::text::make_source(chunk_buff);
-        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, cudf::get_default_stream());
-        auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","));
+        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, stream_view);
+        auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","), -1, stream_view);
         auto const d_col = cudf::column_device_view::create(vec_lines->view());
 
+        auto n_docs = lines->size();
         uint16_t *d_docs = nullptr;
         uint16_t *d_doc_lens = nullptr;
-        cudaMalloc(&d_docs, sizeof(uint16_t) * lines->size() * MAX_DOC_SIZE);
-        cudaMemset(d_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * lines->size());
-        cudaMalloc(&d_doc_lens, sizeof(uint16_t) * lines->size());
-        cudaMemset(d_doc_lens, 0, sizeof(uint16_t) * lines->size());
+        cudaMalloc(&d_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
+        cudaMemset(d_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
+        cudaMalloc(&d_doc_lens, sizeof(uint16_t) * n_docs);
+        // cudaMemset(d_doc_lens, 0, sizeof(uint16_t) * n_docs);
 
         int block = N_THREADS_IN_ONE_BLOCK;
-        int grid = (lines->size() + block - 1) / block;
-        docsKernel<<<grid, block>>>(*d_col, lines->size(), d_docs, d_doc_lens);
-        cudaDeviceSynchronize();
+        int grid = (n_docs + block - 1) / block;
+        docsKernel<<<grid, block, 0, stream_view.value()>>>(*d_col, n_docs, d_docs, d_doc_lens);
 
-        uint16_t *h_docs = new uint16_t[MAX_DOC_SIZE * lines->size()];
-        // memset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * lines->size());
-        uint16_t *h_doc_lens = new uint16_t[lines->size()];
-        // memset(h_doc_lens, 0, sizeof(uint16_t) * lines->size());
-        cudaMemcpy(h_docs, d_docs, sizeof(uint16_t) * lines->size() * MAX_DOC_SIZE, cudaMemcpyDeviceToHost);
-        cudaMemcpy(h_doc_lens, d_doc_lens, sizeof(uint16_t) * lines->size(), cudaMemcpyDeviceToHost);
+        uint16_t *h_docs = nullptr;
+        uint16_t *h_doc_lens = nullptr;
+#ifdef PINNED_MEMORY
+        // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1gb65da58f444e7230d3322b6126bb4902
+        cudaMallocHost(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);  // cudaHostAllocDefault
+        // cudaHostAlloc(&h_docs, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs, cudaHostAllocDefault);
+        cudaHostAlloc(&h_doc_lens, sizeof(int) * n_docs, cudaHostAllocDefault);
+        // cudaHostAlloc(&h_doc_offsets_vec, sizeof(int) * n_docs, cudaHostAllocDefault);
+#else
+        h_docs = new uint16_t[MAX_DOC_SIZE * n_docs];
+        h_doc_lens = new uint16_t[n_docs];
+#endif
+        // memset(h_docs, 0, sizeof(uint16_t) * MAX_DOC_SIZE * n_docs);
+        // memset(h_doc_lens, 0, sizeof(uint16_t) * n_docs);
+        cudaMemcpyAsync(h_docs, d_docs, sizeof(uint16_t) * n_docs * MAX_DOC_SIZE, cudaMemcpyDeviceToHost, stream_view.value());
+        cudaMemcpyAsync(h_doc_lens, d_doc_lens, sizeof(uint16_t) * n_docs, cudaMemcpyDeviceToHost, stream_view.value());
+        cudaStreamSynchronize(stream_view.value());
+
 #ifdef DEBUG
         std::cout << "h_docs:" << std::endl;
-        print2d_uint16(h_docs, lines->size(), MAX_DOC_SIZE);
+        print2d_uint16(h_docs, n_docs, MAX_DOC_SIZE);
         std::cout << "h_doc_lens:" << std::endl;
-        print1d_uint16(h_doc_lens, lines->size());
+        print1d_uint16(h_doc_lens, n_docs);
 #endif
 
-        for (int i = 0; i < lines->size(); i++) {
+        for (int i = 0; i < n_docs; i++) {
             std::vector<uint16_t> vec_docs;
             vec_docs.reserve(h_doc_lens[i]);
             vec_docs.insert(vec_docs.end(), h_docs + i * MAX_DOC_SIZE, h_docs + i * MAX_DOC_SIZE + h_doc_lens[i]);
             docs.emplace_back(vec_docs);
         }
-        doc_lens.insert(doc_lens.end(), h_doc_lens, h_doc_lens + lines->size());
+        doc_lens.insert(doc_lens.end(), h_doc_lens, h_doc_lens + n_docs);
 
+        cudaStreamDestroy(stream_view.value());
         cudaFree(d_docs);
         cudaFree(d_doc_lens);
-        free(h_docs);
-        free(h_doc_lens);
+#ifdef PINNED_MEMORY
+        cudaFreeHost(h_docs);
+        cudaFreeHost(h_doc_lens);
+#else
+        delete[] h_docs;
+        delete[] h_doc_lens;
+#endif
 
-        doccnt += lines->size();
+        doccnt += n_docs;
         readcnt++;
     }
     std::cout << "readcnt: " << readcnt << std::endl;
@@ -181,6 +202,8 @@ void load_file_stream_cudf_chunk(std::string docs_file_name, std::vector<std::ve
 }
 
 #ifdef PIO_TOPK
+typedef std::tuple<std::vector<std::vector<int>>, std::vector<std::vector<float>>> tupleIdScores;
+
 void load_file_cudf_chunk_topk(const std::string docs_file_name,
                                std::vector<std::vector<uint16_t>> &queries,
                                std::vector<std::vector<int>> &indices,
@@ -200,6 +223,13 @@ void load_file_cudf_chunk_topk(const std::string docs_file_name,
     // fseek(fd, 0, SEEK_SET);
     std::cout << "chunk size: " << buffsize << std::endl;
 
+#ifdef PIO_CPU_CONCURRENCY
+    int concurrency = std::thread::hardware_concurrency();
+    std::cout << "hardware concurrency:" << concurrency << std::endl;
+    ThreadPool pool(concurrency);
+    std::vector<std::future<tupleIdScores>> results;
+#endif
+
     while (!feof(fd)) {
         memset(buff, 0, buffsize);
         count = fread(buff, sizeof(char), buffsize, fd);
@@ -213,28 +243,55 @@ void load_file_cudf_chunk_topk(const std::string docs_file_name,
         std::cout << " fread size: " << count << std::endl;
         // std::cout << " buffer: " << chunk_buff << std::endl;
 
+        cudaStream_t stream;
+        cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+        rmm::cuda_stream_view stream_view(stream);
         // cudf multibyte_split
         auto delimiter = "\n";
         cudf::io::text::parse_options options;
         options.strip_delimiters = false;
         auto source = cudf::io::text::make_source(chunk_buff);
-        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, cudf::get_default_stream());
-        auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","));
+        auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, stream_view);
+        auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","), -1, stream_view);
         auto const d_col = cudf::column_device_view::create(vec_lines->view());
+        auto n_docs = lines->size();
 
+#ifdef PIO_CPU_CONCURRENCY
+        // std::unique_ptr https://github.com/progschj/ThreadPool/issues/93 lambda maybe always upgrade
+        auto f = [&queries, doccnt, n_docs, col = std::move(*d_col), &stream_view]() mutable {
+            std::vector<std::vector<int>> sub_topk_indices;
+            std::vector<std::vector<float>> sub_topk_scores;
+            doc_query_scoring_gpu(queries, doccnt, n_docs, std::move(col), sub_topk_indices, sub_topk_scores, stream_view);
+            cudaStreamDestroy(stream_view.value());
+            return std::make_tuple(sub_topk_indices, sub_topk_scores);
+        };
+        results.emplace_back(pool.enqueue(std::move(f)));
+#else
         std::vector<std::vector<int>> sub_topk_indices;
         std::vector<std::vector<float>> sub_topk_scores;
-        doc_query_scoring_gpu(queries, doccnt, lines->size(), *d_col, sub_topk_indices, sub_topk_scores, cudf::get_default_stream());
+        doc_query_scoring_gpu(queries, doccnt, n_docs, *d_col, sub_topk_indices, sub_topk_scores, stream_view);
         for (auto i = 0; i < queries.size(); i++) {
             q_indices[i].insert(q_indices[i].end(), sub_topk_indices[i].begin(), sub_topk_indices[i].end());
             q_scores[i].insert(q_scores[i].end(), sub_topk_scores[i].begin(), sub_topk_scores[i].end());
         }
+        cudaStreamDestroy(stream_view.value());
+#endif
 
-        doccnt += lines->size();
+        doccnt += n_docs;
         readcnt++;
     }
     std::cout << "readcnt: " << readcnt << std::endl;
     std::cout << "doccnt: " << doccnt << std::endl;
+
+#ifdef PIO_CPU_CONCURRENCY
+    for (auto &&result : results) {
+        auto res = result.get();
+        for (auto i = 0; i < queries.size(); i++) {
+            q_indices[i].insert(q_indices[i].end(), std::get<0>(res)[i].begin(), std::get<0>(res)[i].end());
+            q_scores[i].insert(q_scores[i].end(), std::get<1>(res)[i].begin(), std::get<1>(res)[i].end());
+        }
+    }
+#endif
 
     // sort topk
     for (auto i = 0; i < queries.size(); i++) {
