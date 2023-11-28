@@ -253,15 +253,15 @@ void load_file_cudf_chunk_topk(const std::string docs_file_name,
         auto source = cudf::io::text::make_source(chunk_buff);
         auto lines = cudf::io::text::multibyte_split(*source, delimiter, options, stream_view);
         auto vec_lines = cudf::strings::split_record(lines->view(), cudf::string_scalar(","), -1, stream_view);
-        auto const d_col = cudf::column_device_view::create(vec_lines->view());
+        auto d_col = cudf::column_device_view::create(vec_lines->view());
         auto n_docs = lines->size();
 
 #ifdef PIO_CPU_CONCURRENCY
         // std::unique_ptr https://github.com/progschj/ThreadPool/issues/93 lambda maybe always upgrade
-        auto f = [&queries, doccnt, n_docs, col = std::move(*d_col), &stream_view]() mutable {
+        auto f = [&queries, doccnt, n_docs, col = std::move(d_col), &stream_view]() mutable {
             std::vector<std::vector<int>> sub_topk_indices;
             std::vector<std::vector<float>> sub_topk_scores;
-            doc_query_scoring_gpu(queries, doccnt, n_docs, std::move(col), sub_topk_indices, sub_topk_scores, stream_view);
+            doc_query_scoring_gpu(queries, doccnt, n_docs, std::move(*col), sub_topk_indices, sub_topk_scores, stream_view);
             cudaStreamDestroy(stream_view.value());
             return std::make_tuple(sub_topk_indices, sub_topk_scores);
         };
