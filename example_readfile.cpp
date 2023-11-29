@@ -60,9 +60,9 @@ void mmap_file_line(std::string docs_file_name, std::vector<std::vector<uint16_t
     auto pos = 0;
     for (int i = 0; i < n; i++) {
         memset(buff, 0, BUFFER_SIZE);
-        auto buff_size = (i == n - 1) ? mod : BUFFER_SIZE;
-        // memcpy(buff, mmapped_data + (i * BUFFER_SIZE - pos), buff_size + pos); // cp kernel space to user space
-        memmove(buff, mmapped_data + (i * BUFFER_SIZE - pos), buff_size + pos);  // move kernel space to user space
+        auto buff_size = (i == n - 1) ? mod + pos : BUFFER_SIZE;
+        // memcpy(buff, mmapped_data + (i * BUFFER_SIZE - pos), buff_size); // cp kernel space to user space
+        memmove(buff, mmapped_data + (i * BUFFER_SIZE - pos), buff_size);  // move kernel space to user space
         std::string tmp(buff);
         if (i != n - 1) {
             auto offset = tmp.find_last_of("\n");
@@ -71,6 +71,7 @@ void mmap_file_line(std::string docs_file_name, std::vector<std::vector<uint16_t
                 pos = buff_size - offset - 1;
             }
         }
+        // continue;
         sl.clear();
         sl << tmp;
         while (std::getline(sl, tmp_str)) {
@@ -138,6 +139,7 @@ void load_file_buffer(std::string docs_file_name, std::vector<std::vector<uint16
             tmp.erase(offset + 1);
             fseek(fd, cur_pos - (buffsize - offset) + 1, SEEK_SET);
         }
+        // continue;
         sl.clear();
         sl << tmp;
         while (std::getline(sl, tmp_str)) {
