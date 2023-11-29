@@ -268,7 +268,7 @@ build_example_threadpool: init
 		-g
 
 build_example_readfile_cpu: init
-	$(NVCC) -o bin/example_readfile_cpu example_readfile.cpp -DFMT_HEADER_ONLY \
+	$(CXX) -o bin/example_readfile_cpu example_readfile.cpp -DFMT_HEADER_ONLY \
 		-I./ \
 		$(CXXFLAGS) \
 		$(OPTIMIZE_CFLAGS) \

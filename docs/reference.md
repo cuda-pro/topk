@@ -1,4 +1,6 @@
 # reference
+- https://github.com/Highload-fun/platform/wiki
+-
 - https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 - https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
 - https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html

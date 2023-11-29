@@ -154,7 +154,7 @@ void doc_query_scoring_gpu(std::vector<std::vector<uint16_t>> &querys,
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
         int topk = s_scores.size() > TOPK ? TOPK : s_scores.size();
         // sort scores with Heap-based sort
-        // todo: Bitonic sort by gpu
+        // https://highload.fun/tasks/11
         std::partial_sort(s_indices.begin(), s_indices.begin() + topk, s_indices.end(),
                           [&s_scores, start_doc_id](const int &a, const int &b) {
                               if (s_scores[a - start_doc_id] != s_scores[b - start_doc_id]) {

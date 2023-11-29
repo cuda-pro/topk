@@ -3,7 +3,7 @@
 /*
 todo:
 - use cpu + mmap to generate random dataset file
-- use gpu + mmap to generate random dataset file
+- use cpu + mmap + gpu to generate random dataset file
 */
 
 #include <fcntl.h>
